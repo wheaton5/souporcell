@@ -6,7 +6,6 @@ import sys
 import pickle
 import tensorflow as tf
 
-
 parser = argparse.ArgumentParser(
     description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering with tensorflow.")
 parser.add_argument("-a","--alt_matrix",required=True, help="alt matrix output from vartrix in coverage mode")
@@ -15,6 +14,7 @@ parser.add_argument("-k","--num_clusters",required=True, help="number of cluster
 parser.add_argument("-l","--max_loci",required=False, help="maximum loci to consider per cell",default=1024)
 parser.add_argument("--min_alt",required=False, help="minimum number of cells expressing the alt allele to use the locus for clustering",default=4)
 parser.add_argument("--min_ref",required=False, help="minimum number of cells expressing the ref allele to use the locus for clustering",default=4)
+parser.add_argument("-t","--threads",required=False, help="number of threads to run on",default=8)
 args = parser.parse_args()
 
 np.random.seed(4) # guarranteed random number chosen by dice roll, joke https://xkcd.com/221/
@@ -91,12 +91,8 @@ data_loci = cell_loci
 print(data)
 print(weights)
 print("total alleles lost by limiting to max_loci "+str(total_lost))
-
 print("done setting up data, ready for tensorflow")
 
-            
-        
-#import tensorflow_probability as tfp
 rng = np.random
 phi = tf.get_variable(name="phi",shape=(loci,K), initializer=tf.initializers.random_uniform(minval=0, maxval=1),dtype=tf.float64)
 input_data = tf.placeholder("float64",(cells,max_loci)) #tf.constant("input",np.asmatrix(data))
@@ -106,35 +102,30 @@ loci_per_cell = tf.placeholder("float64",(cells))
 trans = tf.transpose(input_data)
 broad_trans = tf.broadcast_to(trans,[K,max_loci,cells])
 untrans = tf.transpose(broad_trans)
-print(phi)
 xtest = untrans-tf.gather(phi,input_loci)
-print(xtest)
-#weight = tf.constant(weights,dtype=tf.float64)
 weightshape = tf.transpose(tf.broadcast_to(tf.transpose(weight_data),[K,max_loci,cells]))
 weighted = weightshape*xtest
 powtest = -tf.pow(weighted,2)
 sumtest = tf.reduce_sum(powtest,axis=1)
 logsum = tf.reduce_logsumexp(sumtest,axis=1)
 cost = -tf.reduce_sum(logsum)
-#optimizer = tf.train.AdamOptimizer(learning_rate=0.01).minimize(cost)
-#optimizer = tf.train.AdagradOptimizer(learning_rate=0.01).minimize(cost)
 optimizer = tf.train.AdamOptimizer(learning_rate=0.1).minimize(cost)
-#optimizer = tf.train.FtrlOptimizer(learning_rate=0.025).minimize(cost)
-#optimizer = tf.train.FtrlOptimizer(learning_rate=0.025).minimize(cost)
 
-
-
-#optimizer2 = tf.train.AdamOptimizer(learning_rate=0.001).minimize(cost)
 post = tf.exp(tf.transpose(tf.transpose(sumtest) - tf.reduce_logsumexp(sumtest,axis=1)))
 repeats = 15
 posteriors = []
 min_cost = None
+
+session_conf = tf.ConfigProto(
+      intra_op_parallelism_threads=args.threads,
+      inter_op_parallelism_threads=args.threads)
+
 for repeat in range(repeats):
     init = tf.global_variables_initializer()
 
     training_epochs = 1000
     last_cost = None
-    with tf.Session() as sess:
+    with tf.Session(config = session_conf) as sess:
         sess.run(init)
         for epoch in range(training_epochs):
             #if epoch < 70:
