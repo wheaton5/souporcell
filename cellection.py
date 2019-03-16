@@ -2,9 +2,8 @@
 
 import numpy as np
 import argparse
-import sys
-import pickle
 import tensorflow as tf
+print("done with imports, why does that take so long")
 
 parser = argparse.ArgumentParser(
     description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering with tensorflow.")
@@ -21,9 +20,9 @@ np.random.seed(4) # guarranteed random number chosen by dice roll, joke https://
 
 min_alt = args.min_alt
 min_ref = args.min_ref
-K = args.num_clusters
+K = int(args.num_clusters)
 
-max_loci = args.max_loci
+max_loci = int(args.max_loci)
 
 cell_index = {}
 total_lost = 0
@@ -32,7 +31,11 @@ cell_counts = {}
 with open(args.alt_matrix) as alt:
     alt.readline()
     alt.readline()
-    alt.readline()
+    tokens = alt.readline().strip().split()
+    cells = int(tokens[1])
+    total_loci = int(tokens[0])
+    print("total cells "+str(cells))
+    print("total loci "+str(total_loci))
     for line in alt:
         tokens = line.strip().split()
         locus = int(tokens[0])
@@ -64,6 +67,7 @@ for (locus, counts) in loci_counts.items():
 used_loci = sorted(used_loci)
 used_loci_indices = {locus:i for (i, locus) in enumerate(used_loci)}
 loci = len(used_loci)
+print("loci being used based on min_alt, min_ref, and max_loci "+str(loci))
 
 cells = len(cell_counts)
 cell_data = np.zeros((cells, max_loci))
@@ -116,9 +120,10 @@ repeats = 15
 posteriors = []
 min_cost = None
 
+threads = int(args.threads)
 session_conf = tf.ConfigProto(
-      intra_op_parallelism_threads=args.threads,
-      inter_op_parallelism_threads=args.threads)
+      intra_op_parallelism_threads=threads,
+      inter_op_parallelism_threads=threads)
 
 for repeat in range(repeats):
     init = tf.global_variables_initializer()
