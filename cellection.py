@@ -1,21 +1,35 @@
+#!/usr/bin/env python
+
 import numpy as np
-import random
+import argparse
 import sys
 import pickle
+import tensorflow as tf
+
+
+parser = argparse.ArgumentParser(
+    description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering with tensorflow.")
+parser.add_argument("-a","--alt_matrix",required=True, help="alt matrix output from vartrix in coverage mode")
+parser.add_argument("-r","--ref_matrix",required=True, help="ref matrix output from vartrix in coverage mode")
+parser.add_argument("-k","--num_clusters",required=True, help="number of clusters to generate")
+parser.add_argument("-l","--max_loci",required=False, help="maximum loci to consider per cell",default=1024)
+parser.add_argument("--min_alt",required=False, help="minimum number of cells expressing the alt allele to use the locus for clustering",default=4)
+parser.add_argument("--min_ref",required=False, help="minimum number of cells expressing the ref allele to use the locus for clustering",default=4)
+args = parser.parse_args()
 
 np.random.seed(4) # guarranteed random number chosen by dice roll, joke https://xkcd.com/221/
 
-random.seed(4)
+min_alt = args.min_alt
+min_ref = args.min_ref
+K = args.num_clusters
 
-min_alt = 4
-min_ref = 4
+max_loci = args.max_loci
 
-max_loci = 1024
 cell_index = {}
 total_lost = 0
 loci_counts = {}
 cell_counts = {}
-with open("alt2.mtx") as alt:
+with open(args.alt_matrix) as alt:
     alt.readline()
     alt.readline()
     alt.readline()
@@ -29,7 +43,7 @@ with open("alt2.mtx") as alt:
         loci_counts.setdefault(locus,[0,0])
         if count > 0:
             loci_counts[locus][1] += 1
-with open("ref2.mtx") as alt:
+with open(args.ref_matrix) as alt:
     alt.readline()
     alt.readline()
     alt.readline()
@@ -76,14 +90,12 @@ data = cell_data
 data_loci = cell_loci
 print(data)
 print(weights)
-print("total lost "+str(total_lost))
+print("total alleles lost by limiting to max_loci "+str(total_lost))
 
-print("get ready to tensorflow")
+print("done setting up data, ready for tensorflow")
 
-K=6
             
         
-import tensorflow as tf
 #import tensorflow_probability as tfp
 rng = np.random
 phi = tf.get_variable(name="phi",shape=(loci,K), initializer=tf.initializers.random_uniform(minval=0, maxval=1),dtype=tf.float64)
