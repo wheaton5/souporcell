@@ -1,122 +1,381 @@
+#!/usr/bin/env python
+
 cell_genotype_consensus = """
 data {
-    int<lower=0> n; // number of cells
-    int<lower=0> m; // number of loci
+    int<lower=0> cells; // number of cells
+    int<lower=0> loci; // number of loci
+    int<lower=0> msoup; //number of loci used to estimate soup
     int<lower=0> k; // number of clusters
-    
-    int cluster_allele_counts[m, k, 2];
+    int<lower=1,upper=2> ploidy;    
+    int cluster_allele_counts[loci, k, 2];
+    int cluster_allele_counts_soup[msoup,k,2];
     int cluster_num_cells[k];
-    real average_allele_expression[m, 2];
+    real average_allele_expression[loci, 2];
+    real average_allele_expression_soup[msoup,2];
+}
+
+transformed data {
+    real<upper=0> neg_log_3;
+    real<upper=0> fp_prior;
+    real<upper=0> tp_prior;
+    neg_log_3 = -log(ploidy+1);
+    tp_prior = log(0.99);
+    fp_prior = log(0.01);
 }
 
 parameters {
-    real<lower=0.0, upper=1.0> theta[m, k, 2];
+    //real<lower=0.0, upper=1.0> theta[loci, k, 2];
     real<lower=0.0, upper=1.0> p_soup;
 }
 
 model {
-    for (cluster in 1:k) {
-        for (loci in 1:m){
-            real p = 0.0;
-            for (allele in 1:2) {
-                real lambda_soup = p_soup * average_allele_expression[loci][allele]*cluster_num_cells[cluster];
-                real soup = poisson_lpmf(cluster_allele_counts[loci][cluster][allele] | 
-                    lambda_soup);
-                real lambda_nonsoup = lambda_soup + (1.0-p_soup)* 
-                    (average_allele_expression[loci][1] + average_allele_expression[loci][2]) *
-                    cluster_num_cells[cluster];
-                real nonsoup = poisson_lpmf(cluster_allele_counts[loci][cluster][allele] |
-                    lambda_nonsoup);
-                target += log_mix(theta[loci][cluster][allele] ,nonsoup, soup);
+    real stuff[ploidy+1];
+    real p_hom_ref;
+    real p_hom_alt;
+    real p_het_ref;
+    real truth;
+    real p_err;
+    real err;
+    real hom_ref;
+    real hom_alt;
+    real het;
+    real lse;
+    int depth;
+    p_soup ~ beta(1,1);
+    for (locus in 1:msoup){
+        err = 0;
+        truth = 0;
+        print(locus);
+        for (cluster in 1:k) {
+            depth = cluster_allele_counts_soup[locus][cluster][1] + cluster_allele_counts_soup[locus][cluster][2];
+            p_hom_ref = (1.0 - p_soup) * 1.0 + p_soup * average_allele_expression_soup[locus][1]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
+            p_hom_alt = (1.0 - p_soup) * 1.0 + p_soup * average_allele_expression_soup[locus][2]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
+            p_het_ref = (1.0 - p_soup) * 0.5 + p_soup * average_allele_expression_soup[locus][1]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
+            p_err =  average_allele_expression_soup[locus][1]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
+            //print(p_hom_ref," ",p_hom_alt," ",p_het_ref," ",average_allele_expression_soup[locus]);
+            print(cluster_allele_counts_soup[locus][cluster][1]," ",cluster_allele_counts_soup[locus][cluster][2]," ",p_soup, " ",depth);
+            
+            hom_ref = binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, p_hom_ref);
+            hom_alt = binomial_lpmf(cluster_allele_counts_soup[locus][cluster][2] | depth, p_hom_alt);
+            het = binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, p_het_ref);
+            err += binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, p_err);
+            stuff[1] = hom_ref + neg_log_3;
+            stuff[2] = hom_alt + neg_log_3;
+            //stuff2 += err + fp_prior;
+            if (ploidy == 2) {
+                stuff[3] = het + neg_log_3;
             }
+            truth += log_sum_exp(stuff);
         }
+        print("true ",truth," error ",err);
+        target += log_mix(0.5, truth, err);
+    }
+}
+generated quantities {
+    real genotypes[loci,k,ploidy+1];
+    real stuff;
+    real p_hom_ref;
+    real truth[loci];
+    real p_hom_alt;
+    real p_het_ref;
+    real p_err;
+    real err[loci];
+    real hom_ref;
+    real hom_alt;
+    real het;
+    real lse;
+    int depth;
+    for (locus in 1:loci){
+        err[locus] = 0;
+        truth[locus] = 0;
+        for (cluster in 1:k) {
+            depth = cluster_allele_counts[locus][cluster][1] + cluster_allele_counts[locus][cluster][2];
+            p_hom_ref = (1.0 - p_soup) * 1.0 + p_soup * average_allele_expression[locus][1]/(average_allele_expression[locus][1] + average_allele_expression[locus][2]);
+            p_hom_alt = (1.0 - p_soup) * 1.0 + p_soup * average_allele_expression[locus][2]/(average_allele_expression[locus][1] + average_allele_expression[locus][2]);
+            p_het_ref = (1.0 - p_soup) * 0.5 + p_soup * average_allele_expression[locus][1]/(average_allele_expression[locus][1] + average_allele_expression[locus][2]);
+            p_err =  average_allele_expression[locus][1]/(average_allele_expression[locus][1] + average_allele_expression[locus][2]);
+            
+            //print(cluster_allele_counts[locus][cluster][1]);
+            //print(cluster_allele_counts[locus][cluster][2]);
+           // print(depth); 
+            hom_ref = binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_hom_ref);
+            hom_alt = binomial_lpmf(cluster_allele_counts[locus][cluster][2] | depth, p_hom_alt);
+            het = binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_het_ref);
+            err[locus] += binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_err);
+            genotypes[locus][cluster][1] = hom_ref + neg_log_3;
+            genotypes[locus][cluster][2] = hom_alt + neg_log_3;
+            //genotypes[locus][cluster][3] = err + fp_prior;
+            if (ploidy == 2) {
+                genotypes[locus][cluster][3] = het + neg_log_3;
+            }
+            truth[locus] += log_sum_exp(genotypes[locus][cluster]);
+        }
+        truth[locus] += tp_prior;
+        err[locus] += fp_prior;
     }
 }
 """
 
 import pystan
+import argparse
+
+parser = argparse.ArgumentParser(description="consensus genotype calling and ambient RNA estimation")
+parser.add_argument("-c","--clusters",required=True,help="tsv cluster file")
+parser.add_argument("-a","--alt_matrix",required=True,help="alt matrix file")
+parser.add_argument("-r","--ref_matrix",required=True,help="ref matrix file")
+parser.add_argument("-p","--ploidy",required=False, help="ploidy, must be 1 or 2, defaults to 2")
+parser.add_argument("-d","--doublets",required=True, help="doublet calls")
+parser.add_argument("-v","--vcf",required=True,help="vcf file from which alt and ref matrix were created")
+args = parser.parse_args()
 
 sm = pystan.StanModel(model_code=cell_genotype_consensus)
-print "done compiling model"
+print("done compiling model")
+
+if args.ploidy:
+    assert(int(args.ploidy) == 1 or int(args.ploidy)==2)
+else:
+    args.ploidy = 2
+
+
 
 doublets = set()
-with open("assignments.tsv") as ass:
-    for line in ass:
-        tokens = line.strip().split()
-        cell = tokens[0]
-        c1 = int(tokens[1])
-        c2 = int(tokens[2])
-        post = float(tokens[4])
-        if not c1==c2:
-            doublets.add(cell)
-        if post < 0.9:
-            doublets.add(cell)
-
-
+with open(args.doublets) as dubs:
+    for (index, line) in enumerate(dubs):
+        if line.startswith("doublet"):
+            doublets.add(index)
+print(len(doublets))
 cell_clusters = {}
 cluster_cells = {}
 max_cluster = -1
 total_cells = 0
-cluster_counts = [0]*6
-with open("cell_clusters.csv") as clusters:
-    for line in clusters:
-        tokens = line.strip().split(",")
-        cell = tokens[0]
-        if cell in doublets:
+with open(args.clusters) as assignments:
+    for (index, line) in enumerate(assignments):
+        if index in doublets:
             continue
+        tokens = line.strip().split()
+        cell = tokens[0]
+        c1 = int(tokens[1])
+        post = float(tokens[2])
+        #if post < 1.0:
+        #    doublets.add(index)
+        #    continue
         total_cells += 1
         cluster = int(tokens[1])
-        cell_clusters[cell] = cluster
+        cell_clusters[index] = cluster
         cluster_cells.setdefault(cluster,[])
-        cluster_cells[cluster].append(cell)
-        cluster_counts[cluster]+=1
+        cluster_cells[cluster].append(index)
         max_cluster = max(max_cluster,cluster)
 
-cluster_allele_counts = []
-average_allele_expression = []
-all_alleles = []
-with open("calls.tsv") as calls:
-    for line in calls:
-        tokens = line.strip().split("\t")
-        cells = tokens[7].split(";")
-        ref_cells = cells[0].split(",")
-        alt_cells = cells[1].split(",")
-        counts = [[0,0] for x in range(max_cluster+1)]
-        chrom = tokens[0]
-        pos = tokens[1]
-        ref = tokens[3]
-        alt = tokens[4]
-        all_alleles.append((chrom, pos, ref, alt))
-        for ref_cell in ref_cells:
-            if ref_cell in doublets:
-                continue
-            cluster = cell_clusters[ref_cell]
-            counts[cluster][0] += 1
-        for alt_cell in alt_cells:
-            if alt_cell in doublets:
-                continue
-            cluster = cell_clusters[alt_cell]
-            counts[cluster][1] += 1
-        cluster_allele_counts.append(counts)
-        allele_expression = [float(len(ref_cells))/float(total_cells), float(len(alt_cells))/float(total_cells)]
-        average_allele_expression.append(allele_expression)
+cluster_counts = [0]*(max_cluster+1)
+for (cell, cluster) in cell_clusters.items():
+    cluster_counts[cluster] += 1
+cell_index = {}
+total_lost = 0
+loci_counts = {}
+loci_full_counts = {}
+cell_counts = {}
 
-counts_dat = {'n': total_cells,
-              'm': len(cluster_allele_counts),
+with open(args.ref_matrix) as ref:
+    with open(args.alt_matrix) as alt:
+        alt.readline()
+        alt.readline()
+        tokens = alt.readline().strip().split()
+        cells = int(tokens[1])
+        total_loci = int(tokens[0])
+        print("total cells "+str(cells))
+        print("total loci "+str(total_loci))
+        ref.readline()
+        ref.readline()
+        ref.readline()
+        for (refline, altline) in zip(ref,alt):
+            reftokens = refline.strip().split()
+            alttokens = altline.strip().split()
+            locus = int(reftokens[0])
+            cell = int(reftokens[1])
+            if cell - 1 in doublets:
+                continue
+            cell_counts.setdefault(cell,{})
+            cell_counts[cell].setdefault(locus,[0,0])
+            loci_counts.setdefault(locus,[0,0])
+            refcount = int(reftokens[2])
+            altcount = int(alttokens[2])
+            cell_counts[cell][locus][0] = refcount
+            cell_counts[cell][locus][1] = altcount
+            loci_counts.setdefault(locus,[0,0])
+            loci_full_counts.setdefault(locus,[0,0])
+            loci_full_counts[locus][0] += refcount
+            loci_full_counts[locus][1] += altcount
+            if refcount > 0:
+                loci_counts[locus][0] += 1
+            if altcount > 0:
+                loci_counts[locus][1] += 1
+total_cells = cells
+loci_for_soup = {}
+index = 0
+min_value = 40
+for (locus, counts) in sorted(loci_full_counts.items()):
+    if counts[0] > min_value and counts[1] > min_value:
+        loci_for_soup[locus-1] = index
+        index += 1
+min_ref = 0
+min_alt = 1
+used_loci = []
+locus_index = {}
+index = 0
+for (locus, counts) in loci_counts.items():
+    if counts[0] >= min_ref and counts[1] >= min_alt:
+        used_loci.append(locus-1)
+        locus_index[locus-1] = index
+        index += 1
+used_loci = sorted(used_loci)
+used_loci_indices = {locus:i for (i, locus) in enumerate(used_loci)}
+total_loci = len(used_loci)
+stats_cell_loci = []
+stats_cell_counts = []
+stats_locus_cells = {}
+for (cell, counts) in cell_counts.items():
+    stats_cell_loci.append(0)
+    stats_cell_counts.append(0)
+    for (locus, count) in counts.items():
+        if (locus-1) in locus_index:
+            stats_locus_cells.setdefault(locus,[0,0])
+            if count[0] > 0:
+                stats_locus_cells[locus][0] += 1
+            if count[1] > 0:
+                stats_locus_cells[locus][1] += 1
+            stats_cell_loci[-1] += 1
+            stats_cell_counts[-1] += (count[0]+count[1])
+
+with open("cell_loci.csv",'w') as cl:
+    cl.write("loci_per_cell\n")
+    for loci in stats_cell_loci:
+        cl.write(str(loci)+"\n")
+with open("loci_cells.csv",'w') as cl:
+    cl.write("cells_per_locus_ref,cells_per_locus_alt\n")
+    for (locus, cells) in stats_locus_cells.items():
+        cl.write(str(cells[0])+","+str(cells[1])+"\n")
+cluster_allele_counts = [[[0,0] for c in range(max_cluster+1)] for x in range(total_loci)]
+cluster_allele_counts_soup = [[[0,0] for c in range(max_cluster+1)] for x in range(len(loci_for_soup))]
+average_allele_expression_soup = [[0,0] for c in range(len(loci_for_soup))]
+average_allele_expression = [[0,0] for c in range(total_loci)]
+for (cell, loci_counts) in cell_counts.items():
+    if cell-1 in doublets:
+        continue
+    cluster = cell_clusters[cell-1]
+    for (locus, counts) in loci_counts.items():
+        ref = 0
+        alt = 0
+        if counts[0] > 0:
+            ref = counts[0]
+        if counts[1] > 0:
+            alt = counts[1]
+        if locus-1 in loci_for_soup:
+            cluster_allele_counts_soup[loci_for_soup[locus-1]][cluster][0] += ref
+            cluster_allele_counts_soup[loci_for_soup[locus-1]][cluster][1] += alt
+            average_allele_expression_soup[loci_for_soup[locus-1]][0] += ref
+            average_allele_expression_soup[loci_for_soup[locus-1]][1] += alt
+        if not locus-1 in locus_index:
+            continue
+        cluster_allele_counts[locus_index[locus-1]][cluster][0] += ref
+        cluster_allele_counts[locus_index[locus-1]][cluster][1] += alt
+        average_allele_expression[locus_index[locus-1]][0] += ref
+        average_allele_expression[locus_index[locus-1]][1] += alt
+
+for locus in range(len(average_allele_expression)):
+    average_allele_expression[locus][0] /= float(total_cells)
+    average_allele_expression[locus][1] /= float(total_cells)
+
+for locus in range(len(average_allele_expression_soup)):
+    
+    average_allele_expression_soup[locus][0] /= float(total_cells)
+    average_allele_expression_soup[locus][1] /= float(total_cells)
+    #print(cluster_allele_counts
+print(int(args.ploidy))
+ 
+counts_dat = {'cells': total_cells,
+              'loci': len(cluster_allele_counts_soup),
               'k': max_cluster + 1,
-              'cluster_allele_counts': cluster_allele_counts,
+              'cluster_allele_counts': cluster_allele_counts_soup,
               'cluster_num_cells': cluster_counts,
-              'average_allele_expression': average_allele_expression}
-print "done loading data"
+              'ploidy': int(args.ploidy),
+              'msoup': len(cluster_allele_counts_soup),
+              'cluster_allele_counts_soup':cluster_allele_counts_soup,
+              'average_allele_expression_soup':average_allele_expression_soup,
+              'average_allele_expression': average_allele_expression_soup}
+#cluster_allele_counts = cluster_allele_counts_soup
+#locus_index = loci_for_soup
+print("done loading data")
 
 fit = sm.optimizing(data=counts_dat)
 
 import pickle
-with open("fit.pickle",'w') as out:
+with open("soup.pickle",'wb') as out:
     pickle.dump(fit,out)
 
+print("soup")
+print(float(fit['p_soup']))
+#with open("cluster_genotypes.tsv",'w') as geno:
+#    geno.write("chrom\tpos\tref\talt\t"+"\t".join([i for i in range(max_cluster+1)])+"\n")
+import vcf
+import math
+import numpy as np
+import scipy
+from collections import namedtuple
+CallData = namedtuple('CallData','GT AO RO')
+import gzip
+def myopen(fname): return open(fname, 'rb') if fname.endswith('.gz') else open(fname)
+vcftemplate = vcf.Reader(myopen(args.vcf))
+vcfreader = vcf.Reader(myopen(args.vcf))
+with open("cluster_genotypes.vcf",'w') as geno:
+    vcfwriter = vcf.Writer(geno,vcftemplate)
+    samples = [str(cluster) for cluster in range(max_cluster+1)]
+    vcfwriter.template.samples = samples
+    locus = -1
+    for rec in vcfreader:
+        locus += 1
+        if locus in locus_index:
+            newrec = vcf.model._Record(rec.CHROM, rec.POS, rec.ID, rec.REF, rec.ALT, rec.QUAL, rec.FILTER, rec.INFO, 'GT:AO:RO', {str(x):x for x in range(max_cluster+1)})
+            calls = []
+            for cluster in range(max_cluster+1):
+                genotypes = fit['genotypes'][locus_index[locus]][cluster]
+                sumexp = scipy.misc.logsumexp(genotypes)#[math.exp(x) for x in genotypes])
+                #print(genotypes)
+                #if sumexp == 0:
+                #    posteriors = [0.333 for x in range(len(genotypes))]
+                #else:
+                truth = fit['truth'][locus_index[locus]]
+                err = fit['err'][locus_index[locus]]
+                total_truth_err = scipy.misc.logsumexp([truth,err])
+                #print("focus")
+                #print(total_truth_err)
+                #print(truth)
+                #print(err)
+                err = np.exp(err-total_truth_err)
+                #print(err)
+                logpost = [x - sumexp for x in genotypes]
+                posteriors = np.exp(logpost)
 
-print float(fit['p_soup'])
-with open("theta.tsv",'w') as theta:
-    for index, allele in enumerate(fit['theta']):
-        theta.write("\t".join([x for x in all_alleles[index]]+[str(x[0])+","+str(x[1]) for x in fit['theta'][index]]) + "\n")
+                largest = np.argmax(posteriors)
+                if err > 0.5:
+                    newrec.FILTER = ['BACKGROUND']
+                #print(posteriors)
+                if len(posteriors) == 3:
+                    gt = './.'
+                    if posteriors[largest] > 0.99:
+                        if largest == 0:
+                            gt = '0/0'
+                        elif largest == 1:
+                            gt = '1/1'
+                        elif largest == 2:
+                            gt = '0/1'
+                elif len(posteriors) == 2:
+                    gt = '.'
+                    if posteriors[largest] > 0.99:
+                        gt = str(largest)
+
+                ao = cluster_allele_counts[locus_index[locus]][cluster][1]
+                ro = cluster_allele_counts[locus_index[locus]][cluster][0]
+                calls.append(vcf.model._Call(newrec, str(cluster), CallData(gt, ao, ro)))
+            newrec.samples = calls
+            vcfwriter.write_record(newrec)
+

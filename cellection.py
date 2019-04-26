@@ -18,8 +18,8 @@ args = parser.parse_args()
 
 np.random.seed(4) # guarranteed random number chosen by dice roll, joke https://xkcd.com/221/
 
-min_alt = args.min_alt
-min_ref = args.min_ref
+min_alt = int(args.min_alt)
+min_ref = int(args.min_ref)
 K = int(args.num_clusters)
 
 max_loci = int(args.max_loci)
@@ -113,9 +113,12 @@ powtest = -tf.pow(weighted,2)
 sumtest = tf.reduce_sum(powtest,axis=1)
 logsum = tf.reduce_logsumexp(sumtest,axis=1)
 cost = -tf.reduce_sum(logsum)
+#for i in range(K):
+#    for j in range(i+1,K):
+#        cost = cost - tf.math.minimum(tf.constant(loci, dtype=tf.float64),tf.reduce_sum(tf.pow(phi[:,i]-phi[:,j],2)))
 optimizer = tf.train.AdamOptimizer(learning_rate=0.1).minimize(cost)
 
-post = tf.exp(tf.transpose(tf.transpose(sumtest) - tf.reduce_logsumexp(sumtest,axis=1)))
+post = sumtest#tf.transpose(tf.transpose(sumtest) - tf.reduce_logsumexp(sumtest,axis=1))
 repeats = 15
 posteriors = []
 min_cost = None
@@ -161,14 +164,10 @@ for repeat in range(repeats):
 posterior = sorted(posteriors)
 print(posterior[0])
 posterior = posterior[0][1]
-print(posterior)
-print(posterior.shape)
 
 
 print(np.argmax(posterior,axis=1))
 cluster_counts = np.zeros(K)
-#for c in np.argmax(posterior,axis=1):
-#    cluster_counts[c] += 1
 for i in range(len(cluster_counts)):
     print(str(i)+"\t"+str(cluster_counts[i]))
 clusters = np.argmax(posterior,axis=1)
@@ -181,7 +180,7 @@ with open("barcodes.tsv") as bcs:
 
 with open("clusters.tsv",'w') as out:
     for c in range(cells):
-        out.write(barcodes[c]+"\t"+str(clusters[c])+"\t"+str(posterior[c][clusters[c]]))
+        out.write(barcodes[c]+"\t"+str(clusters[c])+"\t"+"\t".join([str(x) for x in posterior[c]]))
         out.write("\n")
 
 
