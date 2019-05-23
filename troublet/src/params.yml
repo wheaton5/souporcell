@@ -1,0 +1,41 @@
+name: troublet
+version: "1.0"
+author: Haynes Heaton <whheaton@gmail.com>
+about: Intergenotypic doublet detection given cluster assignments and cell allele counts
+args:
+    - alts:
+        long: alts
+        short: a
+        takes_value: true
+        required: true
+        help: alt allele counts per cell in sparse matrix format out of vartrix
+    - refs:
+        long: refs
+        short: r
+        takes_value: true
+        required: false
+        help: ref allele counts per cell in sparse matrix format out of vartrix
+    - clusters:
+        long: clusters
+        short: c
+        takes_value: true
+        required: true
+        help: cluster file output from schism
+    - doublet_prior:
+        long: doublet_prior
+        short: d
+        takes_value: true
+        required: false
+        help: prior on doublets. Defaults to 0.5
+    - p_soup:
+        long: p_soup
+        takes_value: true
+        required: false
+        help: estimate of ambient RNA. Defaults to 0.2
+    - debug:
+        long: debug
+        short: b
+        required: false
+        takes_value: true
+        multiple: true
+        help: print debug info for index of cells listed

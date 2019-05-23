@@ -18,9 +18,11 @@ transformed data {
     real<upper=0> neg_log_3;
     real<upper=0> fp_prior;
     real<upper=0> tp_prior;
+    real<upper=0> logp_base_correct;
     neg_log_3 = -log(ploidy+1);
-    tp_prior = log(0.99);
-    fp_prior = log(0.01);
+    tp_prior = log(0.9);
+    fp_prior = log(0.1);
+    logp_base_correct = log(0.99);
 }
 
 parameters {
@@ -41,24 +43,36 @@ model {
     real het;
     real lse;
     int depth;
-    p_soup ~ beta(1,1);
+    p_soup ~ beta(2,8);
     for (locus in 1:msoup){
         err = 0;
         truth = 0;
-        print(locus);
+        //print(locus);
         for (cluster in 1:k) {
             depth = cluster_allele_counts_soup[locus][cluster][1] + cluster_allele_counts_soup[locus][cluster][2];
+            if (depth == 0) {
+                continue;
+            }
             p_hom_ref = (1.0 - p_soup) * 1.0 + p_soup * average_allele_expression_soup[locus][1]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
             p_hom_alt = (1.0 - p_soup) * 1.0 + p_soup * average_allele_expression_soup[locus][2]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
             p_het_ref = (1.0 - p_soup) * 0.5 + p_soup * average_allele_expression_soup[locus][1]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
             p_err =  average_allele_expression_soup[locus][1]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
-            //print(p_hom_ref," ",p_hom_alt," ",p_het_ref," ",average_allele_expression_soup[locus]);
-            print(cluster_allele_counts_soup[locus][cluster][1]," ",cluster_allele_counts_soup[locus][cluster][2]," ",p_soup, " ",depth);
+            //print(p_hom_ref," ",p_hom_alt," ",p_het_ref," ",p_err," ",average_allele_expression_soup[locus]);
+            //print(cluster_allele_counts_soup[locus][cluster][1]," ",cluster_allele_counts_soup[locus][cluster][2]," ",p_soup, " ",depth);
             
             hom_ref = binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, p_hom_ref);
+            //hom_ref = beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, 1.0+depth*(p_hom_ref), 1.0+depth*(1.0-p_hom_ref));
             hom_alt = binomial_lpmf(cluster_allele_counts_soup[locus][cluster][2] | depth, p_hom_alt);
+            //hom_alt = beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][2] | depth, 1.0+depth*(p_hom_alt), 1.0+depth*(1.0-p_hom_alt));
+            
             het = binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, p_het_ref);
+            //het = beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, 1.0+depth*(p_het_ref), 1.0+depth*(1.0-p_het_ref));
+            
+            
             err += binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, p_err);
+            //err += beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, 1.0+depth*(p_err), 1.0+depth*(1.0-p_err));
+            //print(hom_ref," ",hom_alt," ",het," ", beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, 1.0+depth*(p_err), 1.0+depth*(1.0-p_err))," ",err);
+
             stuff[1] = hom_ref + neg_log_3;
             stuff[2] = hom_alt + neg_log_3;
             //stuff2 += err + fp_prior;
@@ -67,7 +81,7 @@ model {
             }
             truth += log_sum_exp(stuff);
         }
-        print("true ",truth," error ",err);
+        //print("true ",truth," error ",err);
         target += log_mix(0.5, truth, err);
     }
 }
@@ -88,20 +102,37 @@ generated quantities {
     for (locus in 1:loci){
         err[locus] = 0;
         truth[locus] = 0;
+        //print("locus ",locus);
         for (cluster in 1:k) {
             depth = cluster_allele_counts[locus][cluster][1] + cluster_allele_counts[locus][cluster][2];
+            if (depth == 0) {
+                genotypes[locus][cluster][1] = neg_log_3;
+                genotypes[locus][cluster][2] = neg_log_3;
+                if (ploidy == 2) {
+                    genotypes[locus][cluster][3] = neg_log_3;
+                }
+                truth[locus] += log_sum_exp(genotypes[locus][cluster]);
+                continue;
+            }
             p_hom_ref = (1.0 - p_soup) * 1.0 + p_soup * average_allele_expression[locus][1]/(average_allele_expression[locus][1] + average_allele_expression[locus][2]);
             p_hom_alt = (1.0 - p_soup) * 1.0 + p_soup * average_allele_expression[locus][2]/(average_allele_expression[locus][1] + average_allele_expression[locus][2]);
             p_het_ref = (1.0 - p_soup) * 0.5 + p_soup * average_allele_expression[locus][1]/(average_allele_expression[locus][1] + average_allele_expression[locus][2]);
+            p_hom_ref = fmax(.01,fmin(.99, p_hom_ref));
+            p_hom_alt = fmax(.01,fmin(.99, p_hom_alt));
+            p_het_ref = fmax(.01,fmin(.99, p_het_ref));
             p_err =  average_allele_expression[locus][1]/(average_allele_expression[locus][1] + average_allele_expression[locus][2]);
-            
+            p_err = fmax(.01,fmin(.99,p_err));
             //print(cluster_allele_counts[locus][cluster][1]);
             //print(cluster_allele_counts[locus][cluster][2]);
            // print(depth); 
             hom_ref = binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_hom_ref);
+            //hom_ref = beta_binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, 1.0+depth*(p_hom_ref), 1.0+depth*(1.0-p_hom_ref));
             hom_alt = binomial_lpmf(cluster_allele_counts[locus][cluster][2] | depth, p_hom_alt);
+            //hom_alt = beta_binomial_lpmf(cluster_allele_counts[locus][cluster][2] | depth, 1.0+depth*(p_hom_alt), 1.0+depth*(1.0-p_hom_alt));
             het = binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_het_ref);
-            err[locus] += binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_err);
+            //het = beta_binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, 1.0+depth*(p_het_ref), 1.0+depth*(1.0-p_het_ref));
+            err[locus] += neg_log_3 + depth*logp_base_correct + binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_err);
+            //err[locus] += depth*logp_base_correct + beta_binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, 1.0+depth*(p_err), 1.0+depth*(1.0-p_err));
             genotypes[locus][cluster][1] = hom_ref + neg_log_3;
             genotypes[locus][cluster][2] = hom_alt + neg_log_3;
             //genotypes[locus][cluster][3] = err + fp_prior;
@@ -109,6 +140,9 @@ generated quantities {
                 genotypes[locus][cluster][3] = het + neg_log_3;
             }
             truth[locus] += log_sum_exp(genotypes[locus][cluster]);
+            if (locus == 5 || locus == 12) {
+            print(hom_ref," ",hom_alt," ",het," ", cluster_allele_counts[locus][cluster], " ",p_hom_ref, " ",p_hom_alt, " ",p_het_ref, " ",err[locus]," ",truth[locus]);
+            }
         }
         truth[locus] += tp_prior;
         err[locus] += fp_prior;
@@ -293,15 +327,15 @@ for locus in range(len(average_allele_expression_soup)):
 print(int(args.ploidy))
  
 counts_dat = {'cells': total_cells,
-              'loci': len(cluster_allele_counts_soup),
+              'loci': len(cluster_allele_counts),
               'k': max_cluster + 1,
-              'cluster_allele_counts': cluster_allele_counts_soup,
+              'cluster_allele_counts': cluster_allele_counts,
               'cluster_num_cells': cluster_counts,
               'ploidy': int(args.ploidy),
               'msoup': len(cluster_allele_counts_soup),
               'cluster_allele_counts_soup':cluster_allele_counts_soup,
               'average_allele_expression_soup':average_allele_expression_soup,
-              'average_allele_expression': average_allele_expression_soup}
+              'average_allele_expression': average_allele_expression}
 #cluster_allele_counts = cluster_allele_counts_soup
 #locus_index = loci_for_soup
 print("done loading data")
@@ -321,12 +355,13 @@ import math
 import numpy as np
 import scipy
 from collections import namedtuple
-CallData = namedtuple('CallData','GT AO RO')
+CallData = namedtuple('CallData','GT AO RO T E GO GN')
 import gzip
 def myopen(fname): return open(fname, 'rb') if fname.endswith('.gz') else open(fname)
 vcftemplate = vcf.Reader(myopen(args.vcf))
 vcfreader = vcf.Reader(myopen(args.vcf))
-with open("cluster_genotypes.vcf",'w') as geno:
+import math
+with open("tempsouporcell.vcf",'w') as geno:
     vcfwriter = vcf.Writer(geno,vcftemplate)
     samples = [str(cluster) for cluster in range(max_cluster+1)]
     vcfwriter.template.samples = samples
@@ -334,26 +369,39 @@ with open("cluster_genotypes.vcf",'w') as geno:
     for rec in vcfreader:
         locus += 1
         if locus in locus_index:
-            newrec = vcf.model._Record(rec.CHROM, rec.POS, rec.ID, rec.REF, rec.ALT, rec.QUAL, rec.FILTER, rec.INFO, 'GT:AO:RO', {str(x):x for x in range(max_cluster+1)})
+            newrec = vcf.model._Record(rec.CHROM, rec.POS, rec.ID, rec.REF, rec.ALT, rec.QUAL, rec.FILTER, rec.INFO, 'GT:AO:RO:T:E:GO:GN', {str(x):x for x in range(max_cluster+1)})
             calls = []
+            
             for cluster in range(max_cluster+1):
                 genotypes = fit['genotypes'][locus_index[locus]][cluster]
                 sumexp = scipy.misc.logsumexp(genotypes)#[math.exp(x) for x in genotypes])
-                #print(genotypes)
+                #//print(genotypes)
+                go = []
+                for g in genotypes:
+                    if math.isnan(g):
+                        go.append('NaN')
+                    else:
+                        go.append(str(int(g)))
+                    
+                go = ",".join(go)
+                
                 #if sumexp == 0:
                 #    posteriors = [0.333 for x in range(len(genotypes))]
                 #else:
                 truth = fit['truth'][locus_index[locus]]
                 err = fit['err'][locus_index[locus]]
                 total_truth_err = scipy.misc.logsumexp([truth,err])
-                #print("focus")
-                #print(total_truth_err)
-                #print(truth)
-                #print(err)
                 err = np.exp(err-total_truth_err)
                 #print(err)
                 logpost = [x - sumexp for x in genotypes]
                 posteriors = np.exp(logpost)
+                gn = []
+                for g in logpost:
+                    if math.isnan(g):
+                        gn.append("NaN")
+                    else:
+                        gn.append(str(int(g)))
+                gn = ",".join(gn)
 
                 largest = np.argmax(posteriors)
                 if err > 0.5:
@@ -361,7 +409,7 @@ with open("cluster_genotypes.vcf",'w') as geno:
                 #print(posteriors)
                 if len(posteriors) == 3:
                     gt = './.'
-                    if posteriors[largest] > 0.99:
+                    if posteriors[largest] > 0.5:
                         if largest == 0:
                             gt = '0/0'
                         elif largest == 1:
@@ -370,12 +418,27 @@ with open("cluster_genotypes.vcf",'w') as geno:
                             gt = '0/1'
                 elif len(posteriors) == 2:
                     gt = '.'
-                    if posteriors[largest] > 0.99:
+                    if posteriors[largest] > 0.75:
                         gt = str(largest)
 
                 ao = cluster_allele_counts[locus_index[locus]][cluster][1]
                 ro = cluster_allele_counts[locus_index[locus]][cluster][0]
-                calls.append(vcf.model._Call(newrec, str(cluster), CallData(gt, ao, ro)))
+                truth = fit['truth'][locus_index[locus]]
+                if not math.isnan(truth):
+                    truth = int(truth)
+                err = fit['err'][locus_index[locus]]
+                if not math.isnan(err):
+                    err = int(err)
+                calls.append(vcf.model._Call(newrec, str(cluster), CallData(gt, ao, ro, truth, err, go, gn)))
             newrec.samples = calls
             vcfwriter.write_record(newrec)
-
+with open("tempsouporcell.vcf") as tmp:
+    with open("cluster_genotypes.vcf",'w') as out:
+        for line in tmp:
+            if line.startswith("#"):
+                if line.startswith("#CHROM\tPOS"):
+                    out.write("#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t"+"\t".join([str(clust) for clust in range(max_cluster+1)])+"\n")
+                else:
+                    out.write(line)
+            else:
+                out.write(line)
