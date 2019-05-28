@@ -12,7 +12,9 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 6. Calling cluster genotypes and inferring amount of ambient RNA (consensus.py)
 
 ## full installation
-git clone 
+```
+git clone git@github.com:wheaton5/souporcell.git
+```
 ### Remapping
 Requires Python3 with modules pysam, argparse
 Requires minimap2 https://github.com/lh3/minimap2
@@ -45,8 +47,17 @@ pip install tensorflow
 should work if the glibc is up to date.
 
 ### Calling doublets
-Rust required
+Rust required. 
+```
+curl https://sh.rustup.rs -sSf | sh
+```
+```
+cd /path/to/souporcell/troublet
+cargo build --release
+```
 
+### Genotype and ambient RNA coinference
+Python3 required with modules pystan, pyvcf, pickle, math, scipy, gzip
 
 
 ## 1. Remapping
