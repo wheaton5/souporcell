@@ -12,7 +12,7 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 6. Calling cluster genotypes and inferring amount of ambient RNA (consensus.py)
 
 ```
-git clone git@github.com:wheaton5/souporcell.git
+git clone https://github.com/wheaton5/souporcell.git
 ```
 
 ## 1. Remapping
