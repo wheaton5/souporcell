@@ -58,6 +58,37 @@ tensorflow requires Glibc >= 2.14
 pip install tensorflow
 ```
 should work if the glibc is up to date.
+And go ahead and put the souporcell direcotry on your path
+```
+./souporcell.py -h
+usage: cellection.py [-h] -a ALT_MATRIX -r REF_MATRIX -k NUM_CLUSTERS
+                     [-l MAX_LOCI] [--min_alt MIN_ALT] [--min_ref MIN_REF]
+                     [-t THREADS]
+
+single cell RNAseq mixed genotype clustering using sparse mixture model
+clustering with tensorflow.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -a ALT_MATRIX, --alt_matrix ALT_MATRIX
+                        alt matrix output from vartrix in coverage mode
+  -r REF_MATRIX, --ref_matrix REF_MATRIX
+                        ref matrix output from vartrix in coverage mode
+  -k NUM_CLUSTERS, --num_clusters NUM_CLUSTERS
+                        number of clusters to generate
+  -l MAX_LOCI, --max_loci MAX_LOCI
+                        maximum loci to consider per cell
+  --min_alt MIN_ALT     minimum number of cells expressing the alt allele to
+                        use the locus for clustering
+  --min_ref MIN_REF     minimum number of cells expressing the ref allele to
+                        use the locus for clustering
+  -t THREADS, --threads THREADS
+                        number of threads to run on
+```
+So generally something along the lines of
+```
+./souporcell.py -a alt.mtx -r ref.mtx -k <num_clusters> -t 8
+```
 
 ## 5. Calling doublets
 Rust required. 
@@ -68,10 +99,11 @@ curl https://sh.rustup.rs -sSf | sh
 cd /path/to/souporcell/troublet
 cargo build --release
 ```
+TODO finish this
 
 ## 6. Genotype and ambient RNA coinference
 Python3 required with modules pystan, pyvcf, pickle, math, scipy, gzip
-
+TODO finish this
 
 
 
