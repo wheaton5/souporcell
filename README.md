@@ -22,12 +22,13 @@ Easiest to first add the souporcell directory to your PATH variable with
 ```
 export PATH=/path/to/souporcell:$PATH
 ```
+Then run the renamer.py script to put some of the quality information in the read name. For human data this step will typically take several hours and the output fq file will be somewhat larger than the input bam
 ```
 python renamer.py --bam possorted_genome_bam.bam --barcodes barcodes.tsv --out fq.fq
 ```
 Then we must remap these reads using minimap2 (similar results have been seen with hisat2)
 Requires minimap2 https://github.com/lh3/minimap2
-and add /path/to/minimap2 to your PATH
+and add /path/to/minimap2 to your PATH. For human data the remapping will typically require more than 12 Gb memory and may take a few hours to run.
 ```
 minimap2 -ax splice -t 8 -G50k -k 21 -w 11 --sr -A2 -B8 -O12,32 -E2,1 -r200 -p.5 -N20 -f1000,5000 -n2 -m20 -s40 -g2000 -2K50m --secondary=no <reference_fasta_file> <fastq_file> > minimap.sam
 ```
