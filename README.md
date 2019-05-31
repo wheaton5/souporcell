@@ -18,7 +18,10 @@ git clone https://github.com/wheaton5/souporcell.git
 ## 1. Remapping
 We discuss the need for remapping in our manuscript (to be posted on biorxiv soon). We need to keep track of cell barcodes and and UMIs, so we first create a fastq with those items encoded in the readname.
 Requires python 3.0, modules pysam, argparse (pip install/conda install depending on environment)
-Easiest to first add the souporcell directory to your PATH variable with export PATH=/path/to/souporcell:$PATH
+Easiest to first add the souporcell directory to your PATH variable with 
+```
+export PATH=/path/to/souporcell:$PATH
+```
 ```
 python renamer.py --bam possorted_genome_bam.bam --barcodes barcodes.tsv --out fq.fq
 ```
