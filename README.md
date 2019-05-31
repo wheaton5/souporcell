@@ -26,7 +26,7 @@ Then we must remap these reads using minimap2 (similar results have been seen wi
 Requires minimap2 https://github.com/lh3/minimap2
 and add /path/to/minimap2 to your PATH
 ```
-minimap2 -ax splice -t 8 -G50k -k 21 -w 11 --sr -A2 -B8 -O12,32 -E2,1 -r200 -p.5 -N20 -f1000,5000 -n2 -m20 -s40 -g2000 -2K50m --secondary=no <reference_fasta_file> fq3.fq > minimap.sam
+minimap2 -ax splice -t 8 -G50k -k 21 -w 11 --sr -A2 -B8 -O12,32 -E2,1 -r200 -p.5 -N20 -f1000,5000 -n2 -m20 -s40 -g2000 -2K50m --secondary=no <reference_fasta_file> <fastq_file> > minimap.sam
 ```
 (note the -t 8 as the number of threads, change this as needed)
 Now we must retag the reads with their cell barcodes and UMIs
