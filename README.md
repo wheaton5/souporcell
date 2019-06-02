@@ -54,6 +54,9 @@ freebayes -f <reference_fasta> -iXu -C 2 -q 20 -n 3 -E 1 -m 30 --min-coverage 6 
 ## 3. Cell allele counting 
 Requires vartrix https://github.com/10XGenomics/vartrix
 and add /path/to/vartrix to your PATH
+```
+vartrix --umi --mapq 30 -b <bam file> -c <barcode tsv> --scoring-method coverage --threads 8 --ref-matrix ref.mtx --out-matrix alt.mtx -v <freebayes vcf> --fasta <fasta file used for remapping>
+```
 
 ## 4. Clustering cells by genotype
 Requires Python3 with modules argparse, numpy, tensorflow
