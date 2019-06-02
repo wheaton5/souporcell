@@ -57,6 +57,7 @@ and add /path/to/vartrix to your PATH
 ```
 vartrix --umi --mapq 30 -b <bam file> -c <barcode tsv> --scoring-method coverage --threads 8 --ref-matrix ref.mtx --out-matrix alt.mtx -v <freebayes vcf> --fasta <fasta file used for remapping>
 ```
+note the --threads argument and use an appropriate number of threads for your system.
 
 ## 4. Clustering cells by genotype
 Requires Python3 with modules argparse, numpy, tensorflow
