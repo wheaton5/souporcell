@@ -99,13 +99,40 @@ So generally something along the lines of
 ```
 
 ## 5. Calling doublets
-Rust required. 
+Rust required. To install rust:
 ```
 curl https://sh.rustup.rs -sSf | sh
 ```
+And to build troublet:
 ```
 cd /path/to/souporcell/troublet
 cargo build --release
+```
+And add /path/to/souporcell/troublet/target/release to your path
+The usage is
+```
+/troublet -h
+troublet 1.0
+Haynes Heaton <whheaton@gmail.com>
+Intergenotypic doublet detection given cluster assignments and cell allele counts
+
+USAGE:
+    troublet [OPTIONS] --alts <alts> --clusters <clusters>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -a, --alts <alts>                      alt allele counts per cell in sparse matrix format out of vartrix
+    -c, --clusters <clusters>              cluster file output from schism
+    -b, --debug <debug>...                 print debug info for index of cells listed
+    -d, --doublet_prior <doublet_prior>    prior on doublets. Defaults to 0.5
+    -r, --refs <refs>                      ref allele counts per cell in sparse matrix format out of vartrix
+```
+So generally
+```
+troublet -a alt.mtx -r ref.mtx --clusters clusters.tsv > doublet_output.tsv
 ```
 TODO finish this
 
