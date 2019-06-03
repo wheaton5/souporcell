@@ -134,11 +134,34 @@ So generally
 ```
 troublet -a alt.mtx -r ref.mtx --clusters clusters.tsv > doublet_output.tsv
 ```
-TODO finish this
 
 ## 6. Genotype and ambient RNA coinference
-Python3 required with modules pystan, pyvcf, pickle, math, scipy, gzip
-TODO finish this
+Python3 required with modules pystan, pyvcf, pickle, math, scipy, gzip (pip install should work for each)
+```
+consensus.py -h
+usage: consensus.py [-h] -c CLUSTERS -a ALT_MATRIX -r REF_MATRIX [-p PLOIDY]
+                    -d DOUBLETS -v VCF
+
+consensus genotype calling and ambient RNA estimation
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c CLUSTERS, --clusters CLUSTERS
+                        tsv cluster file
+  -a ALT_MATRIX, --alt_matrix ALT_MATRIX
+                        alt matrix file
+  -r REF_MATRIX, --ref_matrix REF_MATRIX
+                        ref matrix file
+  -p PLOIDY, --ploidy PLOIDY
+                        ploidy, must be 1 or 2, defaults to 2
+  -d DOUBLETS, --doublets DOUBLETS
+                        doublet calls
+  -v VCF, --vcf VCF     vcf file from which alt and ref matrix were created
+```
+So generally
+```
+consensus.py -c clusters.tsv -a alt.mtx -r ref.mtx -d doublet_ouput.tsv --vcf <freebayes vcf>
+```
 
 
 
