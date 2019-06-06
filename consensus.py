@@ -26,7 +26,6 @@ transformed data {
 }
 
 parameters {
-    //real<lower=0.0, upper=1.0> theta[loci, k, 2];
     real<lower=0.0, upper=1.0> p_soup;
 }
 
@@ -47,7 +46,6 @@ model {
     for (locus in 1:msoup){
         err = 0;
         truth = 0;
-        //print(locus);
         for (cluster in 1:k) {
             depth = cluster_allele_counts_soup[locus][cluster][1] + cluster_allele_counts_soup[locus][cluster][2];
             if (depth == 0) {
@@ -57,21 +55,14 @@ model {
             p_hom_alt = (1.0 - p_soup) * 1.0 + p_soup * average_allele_expression_soup[locus][2]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
             p_het_ref = (1.0 - p_soup) * 0.5 + p_soup * average_allele_expression_soup[locus][1]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
             p_err =  average_allele_expression_soup[locus][1]/(average_allele_expression_soup[locus][1] + average_allele_expression_soup[locus][2]);
-            //print(p_hom_ref," ",p_hom_alt," ",p_het_ref," ",p_err," ",average_allele_expression_soup[locus]);
-            //print(cluster_allele_counts_soup[locus][cluster][1]," ",cluster_allele_counts_soup[locus][cluster][2]," ",p_soup, " ",depth);
             
             hom_ref = binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, p_hom_ref);
-            //hom_ref = beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, 1.0+depth*(p_hom_ref), 1.0+depth*(1.0-p_hom_ref));
+
             hom_alt = binomial_lpmf(cluster_allele_counts_soup[locus][cluster][2] | depth, p_hom_alt);
-            //hom_alt = beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][2] | depth, 1.0+depth*(p_hom_alt), 1.0+depth*(1.0-p_hom_alt));
             
             het = binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, p_het_ref);
-            //het = beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, 1.0+depth*(p_het_ref), 1.0+depth*(1.0-p_het_ref));
-            
             
             err += binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, p_err);
-            //err += beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, 1.0+depth*(p_err), 1.0+depth*(1.0-p_err));
-            //print(hom_ref," ",hom_alt," ",het," ", beta_binomial_lpmf(cluster_allele_counts_soup[locus][cluster][1] | depth, 1.0+depth*(p_err), 1.0+depth*(1.0-p_err))," ",err);
 
             stuff[1] = hom_ref + neg_log_3;
             stuff[2] = hom_alt + neg_log_3;
@@ -81,7 +72,6 @@ model {
             }
             truth += log_sum_exp(stuff);
         }
-        //print("true ",truth," error ",err);
         target += log_mix(0.5, truth, err);
     }
 }
@@ -102,7 +92,6 @@ generated quantities {
     for (locus in 1:loci){
         err[locus] = 0;
         truth[locus] = 0;
-        //print("locus ",locus);
         for (cluster in 1:k) {
             depth = cluster_allele_counts[locus][cluster][1] + cluster_allele_counts[locus][cluster][2];
             if (depth == 0) {
@@ -122,27 +111,16 @@ generated quantities {
             p_het_ref = fmax(.01,fmin(.99, p_het_ref));
             p_err =  average_allele_expression[locus][1]/(average_allele_expression[locus][1] + average_allele_expression[locus][2]);
             p_err = fmax(.01,fmin(.99,p_err));
-            //print(cluster_allele_counts[locus][cluster][1]);
-            //print(cluster_allele_counts[locus][cluster][2]);
-           // print(depth); 
             hom_ref = binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_hom_ref);
-            //hom_ref = beta_binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, 1.0+depth*(p_hom_ref), 1.0+depth*(1.0-p_hom_ref));
             hom_alt = binomial_lpmf(cluster_allele_counts[locus][cluster][2] | depth, p_hom_alt);
-            //hom_alt = beta_binomial_lpmf(cluster_allele_counts[locus][cluster][2] | depth, 1.0+depth*(p_hom_alt), 1.0+depth*(1.0-p_hom_alt));
             het = binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_het_ref);
-            //het = beta_binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, 1.0+depth*(p_het_ref), 1.0+depth*(1.0-p_het_ref));
             err[locus] += neg_log_3 + depth*logp_base_correct + binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, p_err);
-            //err[locus] += depth*logp_base_correct + beta_binomial_lpmf(cluster_allele_counts[locus][cluster][1] | depth, 1.0+depth*(p_err), 1.0+depth*(1.0-p_err));
             genotypes[locus][cluster][1] = hom_ref + neg_log_3;
             genotypes[locus][cluster][2] = hom_alt + neg_log_3;
-            //genotypes[locus][cluster][3] = err + fp_prior;
             if (ploidy == 2) {
                 genotypes[locus][cluster][3] = het + neg_log_3;
             }
             truth[locus] += log_sum_exp(genotypes[locus][cluster]);
-            if (locus == 5 || locus == 12) {
-            print(hom_ref," ",hom_alt," ",het," ", cluster_allele_counts[locus][cluster], " ",p_hom_ref, " ",p_hom_alt, " ",p_het_ref, " ",err[locus]," ",truth[locus]);
-            }
         }
         truth[locus] += tp_prior;
         err[locus] += fp_prior;
@@ -163,7 +141,6 @@ parser.add_argument("-v","--vcf",required=True,help="vcf file from which alt and
 args = parser.parse_args()
 
 sm = pystan.StanModel(model_code=cell_genotype_consensus)
-print("done compiling model")
 
 if args.ploidy:
     assert(int(args.ploidy) == 1 or int(args.ploidy)==2)
