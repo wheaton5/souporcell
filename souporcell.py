@@ -9,11 +9,13 @@ parser = argparse.ArgumentParser(
     description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering with tensorflow.")
 parser.add_argument("-a","--alt_matrix",required=True, help="alt matrix output from vartrix in coverage mode")
 parser.add_argument("-r","--ref_matrix",required=True, help="ref matrix output from vartrix in coverage mode")
+parser.add_argument("-b","--barcodes",required=True, help="barcodes.tsv file from cellranger")
 parser.add_argument("-k","--num_clusters",required=True, help="number of clusters to generate")
-parser.add_argument("-l","--max_loci",required=False, help="maximum loci to consider per cell",default=1024)
-parser.add_argument("--min_alt",required=False, help="minimum number of cells expressing the alt allele to use the locus for clustering",default=4)
-parser.add_argument("--min_ref",required=False, help="minimum number of cells expressing the ref allele to use the locus for clustering",default=4)
+parser.add_argument("-l","--max_loci",required=False, help="maximum loci to consider per cell",default=2048)
+parser.add_argument("--min_alt",required=False, help="minimum number of cells expressing the alt allele to use the locus for clustering",default=10)
+parser.add_argument("--min_ref",required=False, help="minimum number of cells expressing the ref allele to use the locus for clustering",default=10)
 parser.add_argument("-t","--threads",required=False, help="number of threads to run on",default=8)
+parser.add_argument("-o","--out",required=True,help="output file")
 args = parser.parse_args()
 
 np.random.seed(4) # guarranteed random number chosen by dice roll, joke https://xkcd.com/221/
@@ -174,11 +176,11 @@ clusters = np.argmax(posterior,axis=1)
 cluster_posteriors = posterior[clusters]
 
 barcodes = []
-with open("barcodes.tsv") as bcs:
+with open(args.barcodes) as bcs:
     for line in bcs:
         barcodes.append(line.strip().split()[0])
 
-with open("clusters.tsv",'w') as out:
+with open(args.out,'w') as out:
     for c in range(cells):
         out.write(barcodes[c]+"\t"+str(clusters[c])+"\t"+"\t".join([str(x) for x in posterior[c]]))
         out.write("\n")

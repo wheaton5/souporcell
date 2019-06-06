@@ -27,11 +27,6 @@ args:
         takes_value: true
         required: false
         help: prior on doublets. Defaults to 0.5
-    - p_soup:
-        long: p_soup
-        takes_value: true
-        required: false
-        help: estimate of ambient RNA. Defaults to 0.2
     - debug:
         long: debug
         short: b
