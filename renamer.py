@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import pysam
 import argparse
 
@@ -6,7 +8,12 @@ parser = argparse.ArgumentParser(description='make fastq from possorted_genome_b
 parser.add_argument('-f', '--bam', required=True, help="cellranger bam")
 parser.add_argument('-b', '--barcodes', required=True, help="cellranger barcodes.tsv")
 parser.add_argument('-o', '--out', required=True, help="output fastq name")
+parser.add_argument('-c', '--chrom', required = False, help="chrom")
+parser.add_argument('-s', '--start', required = False, help="start")
+parser.add_argument('-e', '--end', required = False, help="end")
 args = parser.parse_args()
+
+assert((not(args.chrom) and not(args.start) and not(args.end)) or (args.chrom and args.start and args.end), "if specifying region, must specify chrom, start, and end")
 
 fn = args.bam#"possorted_genome_bam.bam"#files[0]
 bam = pysam.AlignmentFile(fn, "rb")
@@ -16,6 +23,9 @@ with open(args.barcodes) as barcodes:
     for line in barcodes:
         tokens=line.strip().split()
         cell_barcodes.add(tokens[0])
+
+if args.chrom:
+    bam = bam.fetch(args.chrom, int(args.start), int(args.end))
 
 recent_umis = {}
 with open(args.out,'w') as fastq:
