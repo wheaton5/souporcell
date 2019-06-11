@@ -13,7 +13,7 @@ parser.add_argument('-s', '--start', required = False, help="start")
 parser.add_argument('-e', '--end', required = False, help="end")
 args = parser.parse_args()
 
-assert((not(args.chrom) and not(args.start) and not(args.end)) or (args.chrom and args.start and args.end), "if specifying region, must specify chrom, start, and end")
+assert (not(args.chrom) and not(args.start) and not(args.end)) or (args.chrom and args.start and args.end), "if specifying region, must specify chrom, start, and end"
 
 fn = args.bam#"possorted_genome_bam.bam"#files[0]
 bam = pysam.AlignmentFile(fn, "rb")

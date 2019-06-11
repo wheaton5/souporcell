@@ -3,7 +3,6 @@
 import numpy as np
 import argparse
 import tensorflow as tf
-print("done with imports, why does that take so long")
 
 parser = argparse.ArgumentParser(
     description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering with tensorflow.")
@@ -36,8 +35,6 @@ with open(args.alt_matrix) as alt:
     tokens = alt.readline().strip().split()
     cells = int(tokens[1])
     total_loci = int(tokens[0])
-    print("total cells "+str(cells))
-    print("total loci "+str(total_loci))
     for line in alt:
         tokens = line.strip().split()
         locus = int(tokens[0])
@@ -69,7 +66,7 @@ for (locus, counts) in loci_counts.items():
 used_loci = sorted(used_loci)
 used_loci_indices = {locus:i for (i, locus) in enumerate(used_loci)}
 loci = len(used_loci)
-print("loci being used based on min_alt, min_ref, and max_loci "+str(loci))
+#print("loci being used based on min_alt, min_ref, and max_loci "+str(loci))
 
 cells = len(cell_counts)
 cell_data = np.zeros((cells, max_loci))
@@ -94,10 +91,10 @@ for cell in cell_counts.keys():
 
 data = cell_data
 data_loci = cell_loci
-print(data)
-print(weights)
-print("total alleles lost by limiting to max_loci "+str(total_lost))
-print("done setting up data, ready for tensorflow")
+#print(data)
+#print(weights)
+#print("total alleles lost by limiting to max_loci "+str(total_lost))
+#print("done setting up data, ready for tensorflow")
 
 rng = np.random
 phi = tf.get_variable(name="phi",shape=(loci,K), initializer=tf.initializers.random_uniform(minval=0, maxval=1),dtype=tf.float64)
@@ -132,7 +129,7 @@ session_conf = tf.ConfigProto(
 
 for repeat in range(repeats):
     init = tf.global_variables_initializer()
-
+    print("repeat "+str(repeat))
     training_epochs = 1000
     last_cost = None
     with tf.Session(config = session_conf) as sess:
@@ -144,10 +141,11 @@ for repeat in range(repeats):
             #    sess.run(optimizer2, feed_dict={input_data:ref_data, weight_data:weights})
             if epoch % 10 == 0:
                 c = sess.run(cost, feed_dict={input_data:data, weight_data:weights, input_loci:data_loci})
-                print(c)
+                
+                print("epoch "+str(epoch)+" "+str(c))
                 #if last_cost and ((last_cost-c)/c) < 0.0001:
                 if min_cost and last_cost and c > min_cost and (last_cost - c)/(c - min_cost) < 0.005:
-                    print("bailing out")
+                    print("bailing out, too little progress toward minimum so far")
                     break
                 if last_cost and last_cost - c < 1:
                     last_cost = None
