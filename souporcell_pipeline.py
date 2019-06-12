@@ -9,7 +9,7 @@ parser.add_argument("-b","--barcodes",required=True, help= "barcodes.tsv from ce
 parser.add_argument("-f","--fasta",required=True, help="reference fasta file")
 parser.add_argument("-t","--threads",required=True, help="max threads to use")
 parser.add_argument("-o","--out_dir",required=True, help="name of directory to place souporcell files")
-parser.add_argument("-k","--num_clusters",required=True, help="number cluster, tbd add easy way to run on a range of k")
+parser.add_argument("-k","--clusters",required=True, help="number cluster, tbd add easy way to run on a range of k")
 parser.add_argument("--min_alt",required=False, default="10", help="min alt to use locus, default = 10.")
 parser.add_argument("--min_ref",required=False, default="10", help="min ref to use locus, default = 10.")
 parser.add_argument("--max_loci",required=False, default="2048",help="max loci per cell, affects speed, default = 2048.")
@@ -170,7 +170,7 @@ for index in range(args.threads):
     filenames.append(filename)
     filehandle = open(filename,'wb')
     file_handles.append(filehandle)
-    p = subprocess.Popen(["samtools","sort",retag_files[index]],stdout=filehandle)
+    p = subprocess.Popen(["samtools","sort",retag_files[index]],stdout=filehandle,stderr=FNULL)
     sort_jobs.append(p)
     
 # wait for jobs to finish
@@ -190,7 +190,6 @@ final_bam = args.out_dir+"/souporcell_minimap_tagged_sorted.bam"
 subprocess.check_call(["samtools","merge", final_bam]+filenames)
 
 subprocess.check_call(["samtools","index", final_bam])
-print("ready for variant calling")
 
 # clean up tmp bams
 for filename in filenames:
@@ -205,7 +204,6 @@ regions = []
 region = []
 region_so_far = 0
 chrom_so_far = 0
-print("creating chunks for variant calling")
 for chrom in sorted(fasta.keys()):
     chrom_length = len(fasta[chrom])
     while True:
@@ -264,7 +262,7 @@ with open(args.out_dir+"/souporcell_merged_vcf.vcf",'w') as vcfout:
     subprocess.check_call(["bcftools","concat"]+all_vcfs,stdout=vcfout)
 subprocess.check_call(['rm']+all_vcfs)
 with open(args.out_dir+"/souporcell_merged_sorted_vcf.vcf",'w') as vcfout:
-    subprocess.check_call(['bcftools','sort',args.out_dir+"/souporcell_merged_vcf.vcf"],stdout=vcfout)
+    subprocess.check_call(['bcftools','sort',args.out_dir+"/souporcell_merged_vcf.vcf"],stdout=vcfout,stderr=FNULL)
 subprocess.check_call(['rm',args.out_dir+'/souporcell_merged_vcf.vcf'])
 subprocess.check_call(['bgzip',args.out_dir+"/souporcell_merged_sorted_vcf.vcf"])
 final_vcf = args.out_dir+"/souporcell_merged_sorted_vcf.vcf.gz"
@@ -273,15 +271,14 @@ subprocess.check_call(['tabix','-p','vcf',final_vcf])
 print("running vartrix")
 ref_mtx = args.out_dir+"/ref.mtx"
 alt_mtx = args.out_dir+"/alt.mtx"
-subprocess.check_call(["vartrix","--umi","--mapq","30","-b",final_bam,"-c",args.barcodes,"--scoring-method","coverage","--threads",args.threads,
+subprocess.check_call(["vartrix","--umi","--mapq","30","-b",final_bam,"-c",args.barcodes,"--scoring-method","coverage","--threads",str(args.threads),
     "--ref-matrix",ref_mtx, "--out-matrix",alt_mtx,"-v",final_vcf, "--fasta", args.fasta])
 
 print("running souporcell clustering")
 cluster_file = args.out_dir+"/clusters_tmp.tsv"
 with open(args.out_dir+"/souporcell.log",'w') as log:
-    
     subprocess.check_call(["souporcell.py","-a",alt_mtx,"-r",ref_mtx,"-b",args.barcodes,"-k",args.clusters,
-        "-t",args.threads, "-l", args.max_loci, "--min-alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file],stdout=log) 
+        "-t",str(args.threads), "-l", args.max_loci, "--min_alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file],stdout=log) 
 
 print("running souporcell doublet detection")
 doublet_file = args.out_dir + "/clusters.tsv"

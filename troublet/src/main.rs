@@ -22,13 +22,21 @@ use statrs::function::{beta,factorial};
 
 fn main() {
     let params = load_params();
-    let (cell_clusters, num_clusters) = load_clusters(&params.clusters);
+    let (cell_clusters, cluster_losses, num_clusters) = load_clusters(&params.clusters);
     let (cluster_allele_counts, cluster_allele_fractions, soup_allele_fractions, cell_allele_counts) = load_allele_data(&params, &cell_clusters, num_clusters);
-    call_doublets(&params, cluster_allele_counts, cell_clusters, cluster_allele_fractions, soup_allele_fractions, cell_allele_counts); 
+    call_doublets(&params, cluster_allele_counts, cell_clusters, cluster_allele_fractions, soup_allele_fractions, cell_allele_counts, cluster_losses); 
 }
 
-fn call_doublets(params: &Params, cluster_allele_counts: FnvHashMap<(usize,usize),Vec<(f64,f64)>>, cell_clusters: Vec<(usize, usize)>, cluster_allele_fractions: FnvHashMap<(usize, usize), Vec<f64>>, 
-        soup_allele_fractions: Vec<f64>, cell_allele_counts: Vec<Vec<(usize, u64, u64)>>) { // good god i should use more structs
+fn call_doublets(params: &Params, cluster_allele_counts: FnvHashMap<(usize,usize),Vec<(f64,f64)>>, 
+        cell_clusters: Vec<(usize, usize)>, cluster_allele_fractions: FnvHashMap<(usize, usize), Vec<f64>>, 
+        soup_allele_fractions: Vec<f64>, cell_allele_counts: Vec<Vec<(usize, u64, u64)>>, cluster_losses: Vec<(String, Vec<f64>)>) { // good god i should use more structs
+    let num_clusters = cluster_losses[0].1.len();
+    print!("barcode\tstatus\tassignment\tlog_prob_singleton\tlog_prob_doublet\t");
+    for cluster in 0..num_clusters {
+        print!("cluster{}",cluster);
+        if cluster == num_clusters - 1 {println!();}
+        else {print!("\t");}
+    }
     for (cell, loci) in cell_allele_counts.iter().enumerate() {
         let debug = params.debug.contains(&cell);
         let cluster1 = cell_clusters[cell].0;
@@ -70,10 +78,18 @@ fn call_doublets(params: &Params, cluster_allele_counts: FnvHashMap<(usize,usize
             log_prob_singleton += singleton_logprob;
             log_prob_doublet += doublet_logprob;
         }
+        let cell_barcode = &cluster_losses[cell].0;
+        //let losses: Vec<f64> = cluster_losses[cell].1;
+        
         if log_prob_singleton > log_prob_doublet {
-            println!("singlet\t{}\t{}\t{}",cluster1,log_prob_singleton, log_prob_doublet);
+            print!("{}\tsinglet\t{}\t{}\t{}", cell_barcode, cluster1, log_prob_singleton, log_prob_doublet);
         } else {
-            println!("doublet\t{}/{}\t{}\t{}",cluster1,cluster2,log_prob_singleton, log_prob_doublet);
+            print!("{}\tdoublet\t{}/{}\t{}\t{}", cell_barcode, cluster1, cluster2, log_prob_singleton, log_prob_doublet);
+        }
+        for (index, loss) in cluster_losses[cell].1.iter().enumerate() {
+            print!("{}",loss);
+            if index == num_clusters - 1 {println!();}
+            else {print!("\t");}
         }
     }
 }
@@ -216,15 +232,17 @@ fn load_allele_data(params: &Params, cell_clusters: &Vec<(usize, usize)>, num_cl
     (cluster_allele_counts, cluster_allele_fractions, soup_allele_fractions, cell_allele_counts)
 }
 
-fn load_clusters(clusters: &String) -> (Vec<(usize, usize)>, usize)  {
+fn load_clusters(clusters: &String) -> (Vec<(usize, usize)>, Vec<(String, Vec<f64>)>, usize)  {
     let f = File::open(clusters).expect("Unable to open file");
     let f = BufReader::new(f);
     let mut cell_clusters: Vec<(usize, usize)> = Vec::new();
+    let mut clusters: Vec<(String, Vec<f64>)> = Vec::new();
     let mut num_clusters: usize = 0;
     for line in f.lines() {
         let line = line.expect("Unable to read line");
         let tokens: Vec<&str> = line.trim().split("\t").collect();
         let cell = tokens[0];
+        let mut losses: Vec<f64> = Vec::new();
         let cluster1 = tokens[1].to_string().parse::<usize>().unwrap();
         num_clusters = max(num_clusters, cluster1);
         let mut best: f64 = -10000000000.0;
@@ -233,6 +251,7 @@ fn load_clusters(clusters: &String) -> (Vec<(usize, usize)>, usize)  {
         let mut best_index: usize = 0;
         for i in 2..tokens.len() {
             let value = tokens[i].to_string().parse::<f64>().unwrap();
+            losses.push(value);
             if value > best {
                 second_best = best;
                 second_best_index = best_index;
@@ -243,10 +262,11 @@ fn load_clusters(clusters: &String) -> (Vec<(usize, usize)>, usize)  {
                 second_best_index = i-2;
             }
         }
+        clusters.push((cell.to_string(), losses));
         //println!("cell {} index {} clusters {} {}",cell, cell_clusters.len(),best_index, second_best_index);
         cell_clusters.push((best_index, second_best_index));
     }
-    (cell_clusters, num_clusters+1)
+    (cell_clusters, clusters, num_clusters+1)
 }
 
 
