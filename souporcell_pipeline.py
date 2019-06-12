@@ -10,6 +10,7 @@ parser.add_argument("-f","--fasta",required=True, help="reference fasta file")
 parser.add_argument("-t","--threads",required=True, help="max threads to use")
 parser.add_argument("-o","--out_dir",required=True, help="name of directory to place souporcell files")
 parser.add_argument("-k","--clusters",required=True, help="number cluster, tbd add easy way to run on a range of k")
+parser.add_argument("-p","--ploidy",required=False,default="2",help="ploidy, must be 1 or 2, default = 2")
 parser.add_argument("--min_alt",required=False, default="10", help="min alt to use locus, default = 10.")
 parser.add_argument("--min_ref",required=False, default="10", help="min ref to use locus, default = 10.")
 parser.add_argument("--max_loci",required=False, default="2048",help="max loci per cell, affects speed, default = 2048.")
@@ -22,6 +23,7 @@ print("checking modules")
 import numpy as np
 import tensorflow as tf
 import scipy
+import gzip
 import math
 import pystan
 import vcf
@@ -278,10 +280,13 @@ print("running souporcell clustering")
 cluster_file = args.out_dir+"/clusters_tmp.tsv"
 with open(args.out_dir+"/souporcell.log",'w') as log:
     subprocess.check_call(["souporcell.py","-a",alt_mtx,"-r",ref_mtx,"-b",args.barcodes,"-k",args.clusters,
-        "-t",str(args.threads), "-l", args.max_loci, "--min_alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file],stdout=log) 
+        "-t",str(args.threads), "-l", args.max_loci, "--min_alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file],stdout=log,stderr=log) 
 
 print("running souporcell doublet detection")
 doublet_file = args.out_dir + "/clusters.tsv"
 with open(doublet_file,'w') as dub:
     subprocess.check_call(["troublet","--alts",alt_mtx,"--refs",ref_mtx,"--clusters",cluster_file],stdout=dub)
 
+print("running co inference of ambient RNA and cluster genotypes")
+subprocess.check_call(["consensus.py","-c",doublet_file,"-a",alt_mtx,"-r",ref_mtx,"-p", args.ploidy,
+    "--soup_out",args.out_dir+"/ambient_rna.txt","--vcf_out",args.out_dir+"/cluster_genotypes.vcf","--vcf",final_vcf])
