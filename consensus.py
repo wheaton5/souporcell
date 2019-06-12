@@ -1,4 +1,19 @@
 #!/usr/bin/env python
+import pystan
+import argparse
+
+parser = argparse.ArgumentParser(description="consensus genotype calling and ambient RNA estimation")
+parser.add_argument("-c","--clusters",required=True,help="tsv cluster file from the troublet output")
+parser.add_argument("-a","--alt_matrix",required=True,help="alt matrix file")
+parser.add_argument("-r","--ref_matrix",required=True,help="ref matrix file")
+parser.add_argument("-p","--ploidy",required=False, help="ploidy, must be 1 or 2, defaults to 2")
+parser.add_argument("--soup_out",required=True, help="soup output")
+parser.add_argument("--vcf_out",required=True, help="vcf output")
+#parser.add_argument("-d","--doublets",required=True, help="doublet calls")
+parser.add_argument("-v","--vcf",required=True,help="vcf file from which alt and ref matrix were created")
+args = parser.parse_args()
+
+sm = pystan.StanModel(model_code=cell_genotype_consensus)
 
 cell_genotype_consensus = """
 data {
@@ -128,20 +143,6 @@ generated quantities {
 }
 """
 
-import pystan
-import argparse
-
-parser = argparse.ArgumentParser(description="consensus genotype calling and ambient RNA estimation")
-parser.add_argument("-c","--clusters",required=True,help="tsv cluster file")
-parser.add_argument("-a","--alt_matrix",required=True,help="alt matrix file")
-parser.add_argument("-r","--ref_matrix",required=True,help="ref matrix file")
-parser.add_argument("-p","--ploidy",required=False, help="ploidy, must be 1 or 2, defaults to 2")
-parser.add_argument("-d","--doublets",required=True, help="doublet calls")
-parser.add_argument("-v","--vcf",required=True,help="vcf file from which alt and ref matrix were created")
-args = parser.parse_args()
-
-sm = pystan.StanModel(model_code=cell_genotype_consensus)
-
 if args.ploidy:
     assert(int(args.ploidy) == 1 or int(args.ploidy)==2)
 else:
@@ -150,28 +151,28 @@ else:
 
 
 doublets = set()
-with open(args.doublets) as dubs:
+with open(args.clusters) as dubs:
+    dubs.readline() # get rid of header
     for (index, line) in enumerate(dubs):
-        if line.startswith("doublet"):
+        if line.contains("doublet"):
             doublets.add(index)
+
 print(len(doublets))
 cell_clusters = {}
 cluster_cells = {}
 max_cluster = -1
 total_cells = 0
 with open(args.clusters) as assignments:
+    assignments.readline()
     for (index, line) in enumerate(assignments):
         if index in doublets:
             continue
         tokens = line.strip().split()
         cell = tokens[0]
-        c1 = int(tokens[1])
-        post = float(tokens[2])
-        #if post < 1.0:
         #    doublets.add(index)
         #    continue
         total_cells += 1
-        cluster = int(tokens[1])
+        cluster = int(tokens[2])
         cell_clusters[index] = cluster
         cluster_cells.setdefault(cluster,[])
         cluster_cells[cluster].append(index)
@@ -193,8 +194,6 @@ with open(args.ref_matrix) as ref:
         tokens = alt.readline().strip().split()
         cells = int(tokens[1])
         total_loci = int(tokens[0])
-        print("total cells "+str(cells))
-        print("total loci "+str(total_loci))
         ref.readline()
         ref.readline()
         ref.readline()
@@ -257,14 +256,14 @@ for (cell, counts) in cell_counts.items():
             stats_cell_loci[-1] += 1
             stats_cell_counts[-1] += (count[0]+count[1])
 
-with open("cell_loci.csv",'w') as cl:
-    cl.write("loci_per_cell\n")
-    for loci in stats_cell_loci:
-        cl.write(str(loci)+"\n")
-with open("loci_cells.csv",'w') as cl:
-    cl.write("cells_per_locus_ref,cells_per_locus_alt\n")
-    for (locus, cells) in stats_locus_cells.items():
-        cl.write(str(cells[0])+","+str(cells[1])+"\n")
+#with open("cell_loci.csv",'w') as cl:
+#    cl.write("loci_per_cell\n")
+#    for loci in stats_cell_loci:
+#        cl.write(str(loci)+"\n")
+#with open("loci_cells.csv",'w') as cl:
+#    cl.write("cells_per_locus_ref,cells_per_locus_alt\n")
+#    for (locus, cells) in stats_locus_cells.items():
+#        cl.write(str(cells[0])+","+str(cells[1])+"\n")
 cluster_allele_counts = [[[0,0] for c in range(max_cluster+1)] for x in range(total_loci)]
 cluster_allele_counts_soup = [[[0,0] for c in range(max_cluster+1)] for x in range(len(loci_for_soup))]
 average_allele_expression_soup = [[0,0] for c in range(len(loci_for_soup))]
@@ -315,16 +314,15 @@ counts_dat = {'cells': total_cells,
               'average_allele_expression': average_allele_expression}
 #cluster_allele_counts = cluster_allele_counts_soup
 #locus_index = loci_for_soup
-print("done loading data")
+#print("done loading data")
 
 fit = sm.optimizing(data=counts_dat)
 
-import pickle
-with open("soup.pickle",'wb') as out:
-    pickle.dump(fit,out)
-
-print("soup")
-print(float(fit['p_soup']))
+#import pickle
+#with open("soup.pickle",'wb') as out:
+#    pickle.dump(fit,out)
+with open(args.soup_out,'w') as soup:
+    soup.write("ambient RNA estimated as "+str(float(fit['p_soup'])*100)+"%")
 #with open("cluster_genotypes.tsv",'w') as geno:
 #    geno.write("chrom\tpos\tref\talt\t"+"\t".join([i for i in range(max_cluster+1)])+"\n")
 import vcf
@@ -410,7 +408,7 @@ with open("tempsouporcell.vcf",'w') as geno:
             newrec.samples = calls
             vcfwriter.write_record(newrec)
 with open("tempsouporcell.vcf") as tmp:
-    with open("cluster_genotypes.vcf",'w') as out:
+    with open(args.vcf_out,'w') as out:
         for line in tmp:
             if line.startswith("#"):
                 if line.startswith("#CHROM\tPOS"):
@@ -419,3 +417,4 @@ with open("tempsouporcell.vcf") as tmp:
                     out.write(line)
             else:
                 out.write(line)
+subprocess.check_call(["rm","tempsouporcell.vcf"])
