@@ -156,7 +156,7 @@ doublets = set()
 with open(args.clusters) as dubs:
     dubs.readline() # get rid of header
     for (index, line) in enumerate(dubs):
-        if line.contains("doublet"):
+        if "doublet" in line:
             doublets.add(index)
 
 print(len(doublets))
