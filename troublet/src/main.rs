@@ -82,9 +82,9 @@ fn call_doublets(params: &Params, cluster_allele_counts: FnvHashMap<(usize,usize
         //let losses: Vec<f64> = cluster_losses[cell].1;
         
         if log_prob_singleton > log_prob_doublet {
-            print!("{}\tsinglet\t{}\t{}\t{}", cell_barcode, cluster1, log_prob_singleton, log_prob_doublet);
+            print!("{}\tsinglet\t{}\t{}\t{}\t", cell_barcode, cluster1, log_prob_singleton, log_prob_doublet);
         } else {
-            print!("{}\tdoublet\t{}/{}\t{}\t{}", cell_barcode, cluster1, cluster2, log_prob_singleton, log_prob_doublet);
+            print!("{}\tdoublet\t{}/{}\t{}\t{}\t", cell_barcode, cluster1, cluster2, log_prob_singleton, log_prob_doublet);
         }
         for (index, loss) in cluster_losses[cell].1.iter().enumerate() {
             print!("{}",loss);
