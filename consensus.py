@@ -13,7 +13,6 @@ parser.add_argument("--vcf_out",required=True, help="vcf output")
 parser.add_argument("-v","--vcf",required=True,help="vcf file from which alt and ref matrix were created")
 args = parser.parse_args()
 
-sm = pystan.StanModel(model_code=cell_genotype_consensus)
 
 cell_genotype_consensus = """
 data {
@@ -147,6 +146,9 @@ if args.ploidy:
     assert(int(args.ploidy) == 1 or int(args.ploidy)==2)
 else:
     args.ploidy = 2
+
+
+sm = pystan.StanModel(model_code=cell_genotype_consensus)
 
 
 
