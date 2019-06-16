@@ -17,9 +17,14 @@ Easy Installation (Linux) (recommended)
 Google drive makes it annoyingly difficult to download via the terminal.
 ```
 fileid="1XKj4oHj5OJdCurOvcsx27bLpf-23yO7y"
-filename="souporcell.simg"
+filename="souporcell.sif"
 curl -c ./cookie -s -L "https://drive.google.com/uc?export=download&id=${fileid}" > /dev/null
 curl -Lb ./cookie "https://drive.google.com/uc?export=download&confirm=`awk '/download/ {print $NF}' ./cookie`&id=${fileid}" -o ${filename}
+```
+requires singularity >= 3.0
+```
+which singularity
+singularity --version
 ```
 2. build vm image (30min, requires root)
 
