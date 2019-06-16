@@ -127,7 +127,8 @@ while any_running:
             region_fastqs[index].append(fq_name)
             any_running = True
     time.sleep(20)
-
+    print("tick "+str(any_running)) 
+ 
 print("remapping with minimap2")
 FNULL = open(os.devnull, 'w') # minimap too verbose
 # run minimap2
