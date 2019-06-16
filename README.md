@@ -14,15 +14,16 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 Easy Installation (Linux) (recommended) 
 2 Options: 
 1. download singularity vm image (1gb) (recommended) (singularity is similar to docker but safe for clusters)
-2. build vm image (30min, requires root)
-
-1. download from google drive. Google drive makes it annoyingly difficult to download via the terminal.
+Google drive makes it annoyingly difficult to download via the terminal.
 ```
 fileid="1XKj4oHj5OJdCurOvcsx27bLpf-23yO7y"
 filename="souporcell.simg"
 curl -c ./cookie -s -L "https://drive.google.com/uc?export=download&id=${fileid}" > /dev/null
 curl -Lb ./cookie "https://drive.google.com/uc?export=download&confirm=`awk '/download/ {print $NF}' ./cookie`&id=${fileid}" -o ${filename}
 ```
+2. build vm image (30min, requires root)
+
+
 check if your server has singularity, most science HPC clusters should have this. Email your admins if you don't have it and you don't have root to install it.
 ```
 which singularity
