@@ -21,7 +21,7 @@ Easy Installation (Linux) (recommended)
 
 ```
 
-Mac Installation 
+Mac Installation (work in progress, not currently supported)
 You will need homebrew to install vagrant and vagrant to start a vm with singularity
 ```
 /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
@@ -31,6 +31,7 @@ vagrant up
 ```
 
 
+Or you can install everything independently (not recommended, but shouldn't be too bad)
 ```
 git clone https://github.com/wheaton5/souporcell.git
 ```
