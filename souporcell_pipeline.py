@@ -137,8 +137,9 @@ for index in range(args.threads):
     output = args.out_dir+"/souporcell_minimap_tmp_"+str(index)+".sam"
     minimap_tmp_files.append(output)
     with open(output, 'w') as samfile:
-        subprocess.check_call(["minimap2","-ax","splice","-t",str(args.threads),"-G50k","-k","21","-w","11","--sr","-A2","-B8","-O12,32","-E2,1",
-            "-r200","-p.5","-N20","-f1000,5000","-n2","-m20","-s40","-g2000","-2K50m","--secondary=no",args.fasta]+region_fastqs[index], stdout = samfile, stderr = FNULL)
+        with open(args.out_dir+"/minimap.err",'w') minierr:
+            subprocess.check_call(["minimap2","-ax","splice","-t",str(args.threads),"-G50k","-k","21","-w","11","--sr","-A2","-B8","-O12,32","-E2,1",
+                "-r200","-p.5","-N20","-f1000,5000","-n2","-m20","-s40","-g2000","-2K50m","--secondary=no",args.fasta]+region_fastqs[index], stdout = samfile, stderr = minierr)
 
 print("cleaning up tmp fastqs")
 # clean up tmp fastqs
