@@ -18,7 +18,10 @@ Easy Installation (Linux) (recommended)
 
 1. download from google drive. Google drive makes it annoyingly difficult to download via the terminal.
 ```
-
+fileid="1XKj4oHj5OJdCurOvcsx27bLpf-23yO7y"
+filename="souporcell.simg"
+curl -c ./cookie -s -L "https://drive.google.com/uc?export=download&id=${fileid}" > /dev/null
+curl -Lb ./cookie "https://drive.google.com/uc?export=download&confirm=`awk '/download/ {print $NF}' ./cookie`&id=${fileid}" -o ${filename}
 ```
 check if your server has singularity, most science HPC clusters should have this. Email your admins if you don't have it and you don't have root to install it.
 ```
