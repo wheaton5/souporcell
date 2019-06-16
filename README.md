@@ -20,6 +20,11 @@ Easy Installation (Linux) (recommended)
 ```
 
 ```
+check if your server has singularity, most science HPC clusters should have this. Email your admins if you don't have it and you don't have root to install it.
+```
+which singularity
+```
+
 
 Mac Installation (work in progress, not currently supported)
 You will need homebrew to install vagrant and vagrant to start a vm with singularity
