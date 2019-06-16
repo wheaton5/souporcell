@@ -13,7 +13,7 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 
 Easy Installation (Linux) (recommended) 
 2 Options: 
-1. download singularity vm image (1gb) (recommended)
+1. download singularity vm image (1gb) (recommended) (singularity is similar to docker but safe for clusters)
 2. build vm image (30min, requires root)
 
 1. download from google drive. Google drive makes it annoyingly difficult to download via the terminal.
