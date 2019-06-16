@@ -11,6 +11,26 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 5. Calling doublets (troublet)
 6. Calling cluster genotypes and inferring amount of ambient RNA (consensus.py)
 
+Easy Installation (Linux) (recommended) 
+2 Options: 
+1. download singularity vm image (1gb) (recommended)
+2. build vm image (30min, requires root)
+
+1. download from google drive. Google drive makes it annoyingly difficult to download via the terminal.
+```
+
+```
+
+Mac Installation 
+You will need homebrew to install vagrant and vagrant to start a vm with singularity
+```
+/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+brew install vagrant
+vagrant init sylabs/singularity-3.2-ubuntu-bionic64
+vagrant up
+```
+
+
 ```
 git clone https://github.com/wheaton5/souporcell.git
 ```
