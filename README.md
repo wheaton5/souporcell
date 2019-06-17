@@ -12,7 +12,8 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 6. Calling cluster genotypes and inferring amount of ambient RNA (consensus.py)
 
 Easy Installation (Linux) (recommended) 
-download singularity vm image (1gb) (recommended) (singularity is similar to docker but safe for clusters)
+
+Download singularity vm image (1gb) (singularity is similar to docker but safe for clusters)
 Google drive makes it annoyingly difficult to download via the terminal.
 ```
 fileid="1f4tMSUMCJjH0LpENty3Jdmt6eqZUQ4Ip"
