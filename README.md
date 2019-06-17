@@ -16,7 +16,7 @@ Easy Installation (Linux) (recommended)
 1. download singularity vm image (1gb) (recommended) (singularity is similar to docker but safe for clusters)
 Google drive makes it annoyingly difficult to download via the terminal.
 ```
-fileid="1XKj4oHj5OJdCurOvcsx27bLpf-23yO7y"
+fileid="1f4tMSUMCJjH0LpENty3Jdmt6eqZUQ4Ip"
 filename="souporcell.sif"
 curl -c ./cookie -s -L "https://drive.google.com/uc?export=download&id=${fileid}" > /dev/null
 curl -Lb ./cookie "https://drive.google.com/uc?export=download&confirm=`awk '/download/ {print $NF}' ./cookie`&id=${fileid}" -o ${filename}
