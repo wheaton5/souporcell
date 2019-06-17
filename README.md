@@ -25,7 +25,7 @@ requires singularity >= 3.0
 which singularity
 singularity --version
 ```
-and run souporcell_pipeline.py through singularity container.
+and run souporcell_pipeline.py through singularity container. The way singularity works is that it automatically mounts directories downstream from where you run it and otherwise you would need to manually mount those directories. So just run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam, cellranger barcodes file, and a reference fasta.
 ```
 singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
 ```
