@@ -146,11 +146,15 @@ if args.ploidy:
     assert(int(args.ploidy) == 1 or int(args.ploidy)==2)
 else:
     args.ploidy = 2
+import os
+import pickle
+sm = pickle.load(open(os.path.realpath(__file__)[0:-12]+"stan_consensus.pickle",'rb'))
+#sm = pystan.StanModel(model_code=cell_genotype_consensus)
+#with open("stan_consensus.pickle",'wb') as model:
+#    pickle.dump(sm, model)
+#assert False
 
-
-sm = pystan.StanModel(model_code=cell_genotype_consensus)
-
-
+#print("got here")
 
 doublets = set()
 with open(args.clusters) as dubs:
@@ -158,8 +162,9 @@ with open(args.clusters) as dubs:
     for (index, line) in enumerate(dubs):
         if "doublet" in line:
             doublets.add(index)
+import subprocess
 
-print(len(doublets))
+
 cell_clusters = {}
 cluster_cells = {}
 max_cluster = -1
@@ -302,7 +307,6 @@ for locus in range(len(average_allele_expression_soup)):
     average_allele_expression_soup[locus][0] /= float(total_cells)
     average_allele_expression_soup[locus][1] /= float(total_cells)
     #print(cluster_allele_counts
-print(int(args.ploidy))
  
 counts_dat = {'cells': total_cells,
               'loci': len(cluster_allele_counts),
