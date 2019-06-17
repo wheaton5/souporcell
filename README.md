@@ -16,10 +16,7 @@ Easy Installation (Linux) (recommended)
 Download singularity image (1gb) (singularity is similar to docker but safe for clusters)
 Google drive makes it annoyingly difficult to download via the terminal. Will download and name souporcell.sif (singularity image file) to your current directory.
 ```
-fileid="1f4tMSUMCJjH0LpENty3Jdmt6eqZUQ4Ip"
-filename="souporcell.sif"
-curl -c ./cookie -s -L "https://drive.google.com/uc?export=download&id=${fileid}" > /dev/null
-curl -Lb ./cookie "https://drive.google.com/uc?export=download&confirm=`awk '/download/ {print $NF}' ./cookie`&id=${fileid}" -o ${filename}
+fileid="1f4tMSUMCJjH0LpENty3Jdmt6eqZUQ4Ip" & filename="souporcell.sif" & curl -c ./cookie -s -L "https://drive.google.com/uc?export=download&id=${fileid}" > /dev/null & curl -Lb ./cookie "https://drive.google.com/uc?export=download&confirm=`awk '/download/ {print $NF}' ./cookie`&id=${fileid}" -o ${filename}
 ```
 requires singularity >= 3.0
 ```
