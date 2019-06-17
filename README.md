@@ -12,8 +12,7 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 6. Calling cluster genotypes and inferring amount of ambient RNA (consensus.py)
 
 Easy Installation (Linux) (recommended) 
-2 Options: 
-1. download singularity vm image (1gb) (recommended) (singularity is similar to docker but safe for clusters)
+download singularity vm image (1gb) (recommended) (singularity is similar to docker but safe for clusters)
 Google drive makes it annoyingly difficult to download via the terminal.
 ```
 fileid="1f4tMSUMCJjH0LpENty3Jdmt6eqZUQ4Ip"
@@ -26,8 +25,12 @@ requires singularity >= 3.0
 which singularity
 singularity --version
 ```
-2. build vm image (30min, requires root)
+and run souporcell_pipeline.py through singularity container.
+```
+singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
+```
 
+2. build vm image (30min, requires root) (documentation in process, not yet supported)
 
 check if your server has singularity, most science HPC clusters should have this. Email your admins if you don't have it and you don't have root to install it.
 ```
@@ -49,6 +52,15 @@ Or you can install everything independently (not recommended, but shouldn't be t
 ```
 git clone https://github.com/wheaton5/souporcell.git
 ```
+put souporcell directory on your PATH 
+requires samtools, bcftools, htslib, python3, freebayes, vartrix, minimap2 all on your PATH
+python packages tensorflow, pyvcf, pystan, pyfasta, numpy, scipy
+## To run through the pipeline script
+```
+souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
+```
+
+## To run things step by step not through the pipeline script
 
 ## 1. Remapping
 We discuss the need for remapping in our manuscript (to be posted on biorxiv soon). We need to keep track of cell barcodes and and UMIs, so we first create a fastq with those items encoded in the readname.
