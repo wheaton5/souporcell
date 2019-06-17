@@ -127,7 +127,6 @@ while any_running:
             region_fastqs[index].append(fq_name)
             any_running = True
     time.sleep(20)
-    print("tick "+str(any_running)) 
  
 print("remapping with minimap2")
 FNULL = open(os.devnull, 'w') # minimap too verbose
@@ -253,7 +252,7 @@ while any_running:
             filehandle = open(vcf_name,'w')
             filehandles.append(filehandle)
             p = subprocess.Popen(["freebayes","-f",args.fasta,"-r",chrom+":"+str(start)+"-"+str(end),"-iXu","-C","2",
-                "-q","20","-n", "3", "-E","1","-m","30","--min-coverage","6","--max-coverage","100000","--pooled-continuous",final_bam],stdout=filehandle)
+                "-q","20","-n", "3", "-E","1","-m","30","--min-coverage","6","--pooled-continuous",final_bam],stdout=filehandle)
             all_vcfs.append(vcf_name)
             procs[index] = p
             region_vcfs[index].append(vcf_name)
