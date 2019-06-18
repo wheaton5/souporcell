@@ -28,27 +28,42 @@ requires singularity >= 3.0
 which singularity
 singularity --version
 ```
-and run souporcell_pipeline.py through singularity container. The way singularity works is that it automatically mounts directories downstream from where you run it and otherwise you would need to manually mount those directories. So just run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam, cellranger barcodes file, and a reference fasta.
+and run souporcell_pipeline.py through singularity container. The way singularity works is that it automatically mounts directories downstream from where you run it and otherwise you would need to manually mount those directories. So just run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam, cellranger barcodes file, and a reference fasta. The cellranger bam is located in the cellranger outs directory and is called possorted_genome_bam.bam. The barcodes file is located in the cellranger outs/filtered_gene_bc_matrices/<ref_name>/barcodes.tsv. The reference fasta should be of the same species but doesn't necessarily need to be the exact cellranger reference.
 ```
 singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
 ```
 
-2. build vm image (30min, requires root) (documentation in process, not yet supported)
+And this should run the whole pipeline. This will require up to 24gb of ram for human (minimap2 bam index is high water mark). For smaller genomes, fewer clusters, lower --max-loci will require less memory.
 
-check if your server has singularity, most science HPC clusters should have this. Email your admins if you don't have it and you don't have root to install it.
+Your output should look something like 
 ```
-which singularity
+checking modules
+imports done
+checking fasta
+creating chunks
+generating fastqs with cell barcodes and umis in readname
+remapping with minimap2
+cleaning up tmp fastqs
+repopulating cell barcode and UMI tags
+cleaning up tmp samfiles
+sorting retagged bam files
+merging sorted bams
+running freebayes
+merging vcfs
+running vartrix
+running souporcell clustering
+running souporcell doublet detection
+running co inference of ambient RNA and cluster genotypes
+/opt/conda/envs/py36/lib/python3.6/site-packages/pystan/misc.py:399: FutureWarning: Conversion of the second argument of issubdtype from `float` to `np.floating` is deprecated. In future, it will be treated as `np.float64 == np.dtype(float).type`.
+  elif np.issubdtype(np.asarray(v).dtype, float):
+Initial log joint probability = -56040.6
+    Iter      log prob        ||dx||      ||grad||       alpha      alpha0  # evals  Notes
+       5      -29176.8    0.00143424     0.0384157           1           1       16
+Optimization terminated normally:
+  Convergence detected: relative gradient magnitude is below tolerance
 ```
 
-
-Mac Installation (work in progress, not currently supported)
-You will need homebrew to install vagrant and vagrant to start a vm with singularity
-```
-/usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-brew install vagrant
-vagrant init sylabs/singularity-3.2-ubuntu-bionic64
-vagrant up
-```
+and your output directory should have 
 
 
 Or you can install everything independently (not recommended, but shouldn't be too bad)
