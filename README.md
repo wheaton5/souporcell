@@ -18,6 +18,11 @@ Google drive makes it annoyingly difficult to download via the terminal. Will do
 ```
 wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1fPeSNLqNycpcHP44SI6yV_fDyFkdDmft' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1fPeSNLqNycpcHP44SI6yV_fDyFkdDmft" -O souporcell.sif && rm -rf /tmp/cookies.txt
 ```
+```
+ls -lah souporcell.sif
+```
+If this file isn't ~1.3Gb make sure you have enough space for it. You can also download manually from https://drive.google.com/open?id=1fPeSNLqNycpcHP44SI6yV_fDyFkdDmft
+
 requires singularity >= 3.0
 ```
 which singularity
