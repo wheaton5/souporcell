@@ -29,6 +29,40 @@ which singularity
 singularity --version
 ```
 and run souporcell_pipeline.py through singularity container. The way singularity works is that it automatically mounts directories downstream from where you run it and otherwise you would need to manually mount those directories. So just run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam, cellranger barcodes file, and a reference fasta. The cellranger bam is located in the cellranger outs directory and is called possorted_genome_bam.bam. The barcodes file is located in the cellranger outs/filtered_gene_bc_matrices/<ref_name>/barcodes.tsv. The reference fasta should be of the same species but doesn't necessarily need to be the exact cellranger reference.
+
+First just look at the usage
+```
+singularity exec souporcell.sif souporcell_pipeline.py -h
+usage: souporcell_pipeline.py [-h] -i BAM -b BARCODES -f FASTA -t THREADS -o
+                              OUT_DIR -k CLUSTERS [-p PLOIDY]
+                              [--min_alt MIN_ALT] [--min_ref MIN_REF]
+                              [--max_loci MAX_LOCI] [--ignore IGNORE]
+
+single cell RNAseq mixed genotype clustering using sparse mixture model
+clustering with tensorflow.
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i BAM, --bam BAM     cellranger bam
+  -b BARCODES, --barcodes BARCODES
+                        barcodes.tsv from cellranger
+  -f FASTA, --fasta FASTA
+                        reference fasta file
+  -t THREADS, --threads THREADS
+                        max threads to use
+  -o OUT_DIR, --out_dir OUT_DIR
+                        name of directory to place souporcell files
+  -k CLUSTERS, --clusters CLUSTERS
+                        number cluster, tbd add easy way to run on a range of
+                        k
+  -p PLOIDY, --ploidy PLOIDY
+                        ploidy, must be 1 or 2, default = 2
+  --min_alt MIN_ALT     min alt to use locus, default = 10.
+  --min_ref MIN_REF     min ref to use locus, default = 10.
+  --max_loci MAX_LOCI   max loci per cell, affects speed, default = 2048.
+  --ignore IGNORE       set to True to ignore data error assertions
+```
+With a normal command looking like
 ```
 singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
 ```
@@ -64,6 +98,14 @@ Optimization terminated normally:
 ```
 
 and your output directory should have 
+```
+alt.mtx          cluster_genotypes.vcf  clusters.tsv  ref.mtx         souporcell_merged_sorted_vcf.vcf.gz      souporcell_minimap_tagged_sorted.bam
+ambient_rna.txt  clusters_tmp.tsv       minimap.err   souporcell.log  souporcell_merged_sorted_vcf.vcf.gz.tbi  souporcell_minimap_tagged_sorted.bam.bai
+```
+The important files are 
+1. clusters.tsv
+2. cluster_genotypes.vcf
+3. 
 
 
 Or you can install everything independently (not recommended, but shouldn't be too bad)
