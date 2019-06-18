@@ -23,12 +23,15 @@ ls -lah souporcell.sif
 ```
 If this file isn't ~1.3Gb make sure you have enough space for it. You can also download manually from https://drive.google.com/open?id=1sknDK6ph_g6SYAX0s4XUecs50Unu6Gk4
 
+If you are running on a scientific cluster, they should have singularity which is like docker but safe for clusters. 
+If you are running on your own linux box you may need to install singularity https://www.sylabs.io/guides/3.2/user-guide/quick_start.html#quick-installation-steps
+
 requires singularity >= 3.0
 ```
 which singularity
 singularity --version
 ```
-and run souporcell_pipeline.py through singularity container. The way singularity works is that it automatically mounts directories downstream from where you run it and otherwise you would need to manually mount those directories. So just run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam, cellranger barcodes file, and a reference fasta. The cellranger bam is located in the cellranger outs directory and is called possorted_genome_bam.bam. The barcodes file is located in the cellranger outs/filtered_gene_bc_matrices/<ref_name>/barcodes.tsv. The reference fasta should be of the same species but doesn't necessarily need to be the exact cellranger reference.
+And run souporcell_pipeline.py through singularity container. The way singularity works is that it automatically mounts the current working directory and directories downstream from where you run it and otherwise you would need to manually mount those directories. So just run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam, cellranger barcodes file, and a reference fasta. The cellranger bam is located in the cellranger outs directory and is called possorted_genome_bam.bam. The barcodes file is located in the cellranger outs/filtered_gene_bc_matrices/<ref_name>/barcodes.tsv. The reference fasta should be of the same species but doesn't necessarily need to be the exact cellranger reference.
 
 First just look at the usage
 ```
@@ -66,6 +69,7 @@ With a normal command looking like
 ```
 singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
 ```
+Recommended number of threads are 8. 
 
 And this should run the whole pipeline. This will require up to 24gb of ram for human (minimap2 bam index is high water mark). For smaller genomes, fewer clusters, lower --max-loci will require less memory.
 
