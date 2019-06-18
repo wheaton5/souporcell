@@ -105,7 +105,30 @@ ambient_rna.txt  clusters_tmp.tsv       minimap.err   souporcell.log  souporcell
 The important files are 
 1. clusters.tsv
 2. cluster_genotypes.vcf
-3. 
+3. ambient_rna.txt
+
+clusters.tsv will look like
+```
+barcode status  assignment      log_loss_singleton      log_loss_doublet        cluster0        cluster1
+AAACCTGAGATCCGAG-1      singlet 0       -152.7778890920112      -190.5463095948822      -43.95302689281067      -101.63377524087669
+AAACCTGAGCACCGTC-1      singlet 0       -78.56014177554212      -96.66255440088581      -20.949294849836267     -52.57478083591962
+AAACCTGAGTACGATA-1      singlet 0       -216.0188863327174      -281.3888392065457      -63.059016939362536     -159.5450834682198
+AAACCTGGTACATGTC-1      singlet 1       -47.189434469216565     -96.30865717225866      -62.652900832546955     -15.284168900754413
+AAACCTGTCTACTCAT-1      singlet 0       -129.30104434183454     -167.87811467946756     -41.09158213888751      -106.3201962010145
+AAACCTGTCTTGTCAT-1      singlet 0       -85.99781433701455      -110.81701038967158     -24.518165091815554     -60.05279033826837
+AAACGGGCACTGTTAG-1      singlet 0       -154.26595878718032     -191.05465308213363     -31.356408693487197     -81.61186496254497
+AAACGGGCATCATCCC-1      singlet 1       -46.33205678267174      -80.24152434540565      -50.78221280006256      -14.615983876840312
+AAACGGGGTAGGGTAC-1      singlet 0       -240.5237900569412      -302.91575436035924     -71.79370547349878      -154.08594135029728
+AAACGGGTCGGCATCG-1      singlet 0       -166.66827966974532     -226.56795157885028     -51.08790637893961      -148.04625123166286
+```
+With the cell barcode, singlet/doublet status, cluster, log_loss_singleton, log_loss_doublet, followed by log loss for each cluster.
+
+2. cluster_genotypes.vcf is a vcf with genotypes for each cluster for each variant in the input vcf from freebayes
+
+and 
+
+3. ambient_rna.txt just contains the ambient RNA percentage detected
+
 
 
 Or you can install everything independently (not recommended, but shouldn't be too bad)
