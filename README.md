@@ -69,9 +69,9 @@ With a normal command looking like
 ```
 singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
 ```
-Recommended number of threads are 8. 
+The recommended number of threads is 8. 
 
-And this should run the whole pipeline. This will require up to 24gb of ram for human (minimap2 bam index is high water mark). For smaller genomes, fewer clusters, lower --max-loci will require less memory.
+And this should run the whole pipeline. This will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. And it will require roughly 2x the amount of diskspace that the bam file currently takes up.
 
 Your output should look something like 
 ```
