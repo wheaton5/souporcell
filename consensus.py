@@ -153,6 +153,7 @@ sm = pickle.load(open(os.path.realpath(__file__)[0:-12]+"stan_consensus.pickle",
 #with open("stan_consensus.pickle",'wb') as model:
 #    pickle.dump(sm, model)
 #assert False
+from scipy.special import logsumexp
 
 #print("got here")
 
@@ -355,7 +356,7 @@ with open("tempsouporcell.vcf",'w') as geno:
             
             for cluster in range(max_cluster+1):
                 genotypes = fit['genotypes'][locus_index[locus]][cluster]
-                sumexp = scipy.misc.logsumexp(genotypes)#[math.exp(x) for x in genotypes])
+                sumexp = logsumexp(genotypes)#[math.exp(x) for x in genotypes])
                 #//print(genotypes)
                 go = []
                 for g in genotypes:
@@ -371,7 +372,7 @@ with open("tempsouporcell.vcf",'w') as geno:
                 #else:
                 truth = fit['truth'][locus_index[locus]]
                 err = fit['err'][locus_index[locus]]
-                total_truth_err = scipy.misc.logsumexp([truth,err])
+                total_truth_err = logsumexp([truth,err])
                 err = np.exp(err-total_truth_err)
                 #print(err)
                 logpost = [x - sumexp for x in genotypes]
