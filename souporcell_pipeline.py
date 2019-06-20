@@ -64,6 +64,10 @@ if not args.ignore == "True":
     assert float(num_cb)/float(num_read_test) > 0.5, "Less than 50% of first 100000 reads have cell barcode tag (CB), turn on --ignore True to ignore"
     assert float(num_umi)/float(num_read_test) > 0.5, "Less than 50% of first 100000 reads have UMI tag (UB), turn on --ignore True to ignore"
     assert float(num_cb_cb)/float(num_read_test) > 0.05, "Less than 25% of first 100000 reads have cell barcodes from barcodes file, is this the correct barcode file? turn on --ignore True to ignore"
+
+if not os.path.isfile(args.bam+".bai"):
+    print("no bam index found, creating")
+    subprocess.check_call(['samtools','index',args.bam])
 print("checking fasta")
 #test fasta load
 fasta = pyfasta.Fasta(args.fasta)
