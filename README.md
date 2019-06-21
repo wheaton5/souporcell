@@ -31,7 +31,7 @@ requires singularity >= 3.0
 which singularity
 singularity --version
 ```
-You should now be able to run souporcell_pipeline.py through the singularity container. Singularity automatically mounts the current working directory and directories downstream from where you run it, otherwise you would need to manually mount those directories. Therefor you can run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam, cellranger barcodes file, and a reference fasta. The cellranger bam is located in the cellranger outs directory and is called possorted_genome_bam.bam. The barcodes file is located in the cellranger outs/filtered_gene_bc_matrices/<ref_name>/barcodes.tsv. The reference fasta should be of the same species but does not necessarily need to be the exact cellranger reference.
+You should now be able to run souporcell_pipeline.py through the singularity container. Singularity automatically mounts the current working directory and directories downstream from where you run it, otherwise you would need to manually mount those directories. Therefor you can run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam/bai, cellranger barcodes file, and a reference fasta. The cellranger bam is located in the cellranger outs directory and is called possorted_genome_bam.bam. The barcodes file is located in the cellranger outs/filtered_gene_bc_matrices/<ref_name>/barcodes.tsv. The reference fasta should be of the same species but does not necessarily need to be the exact cellranger reference. 
 
 The options for using souporcell are:
 ```
