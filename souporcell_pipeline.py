@@ -70,7 +70,7 @@ if not os.path.isfile(args.bam+".bai"):
     subprocess.check_call(['samtools','index',args.bam])
 print("checking fasta")
 #test fasta load
-fasta = pyfasta.Fasta(args.fasta)
+fasta = pyfasta.Fasta(args.fasta,key_fn=lambda key: key.split()[0])
 
 bam = pysam.AlignmentFile(args.bam)
 total_reference_length = 0
