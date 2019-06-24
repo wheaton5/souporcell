@@ -76,6 +76,7 @@ The above command will run all six steps of the pipeline and it will require up 
 ## Practice/Testing data set: Demuxlet paper data
 ```
 wget https://sra-download.ncbi.nlm.nih.gov/traces/sra47/SRZ/005398/SRR5398235/A.merged.bam
+samtools index A.merged.bam
 wget ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM2560nnn/GSM2560245/suppl/GSM2560245_barcodes.tsv.gz
 gunzip GSM2560245_barcodes.tsv.gz
 ```
