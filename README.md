@@ -73,6 +73,21 @@ The recommended number of threads is 8.
 
 The above command will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up.
 
+## Practice/Testing data set: Demuxlet paper data
+```
+wget https://sra-download.ncbi.nlm.nih.gov/traces/sra47/SRZ/005398/SRR5398235/A.merged.bam
+wget ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM2560nnn/GSM2560245/suppl/GSM2560245_barcodes.tsv.gz
+gunzip GSM2560245_barcodes.tsv.gz
+```
+And if you don't have a human reference sitting around, grab one here
+```
+wget http://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/GRCh38_full_analysis_set_plus_decoy_hla.fa
+```
+Now you should be ready to test it out
+```
+singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i A.merged.bam -b GSM2560245_barcodes.tsv -f GRCh38_full_analysis_set_plus_decoy_hla.fa -t 8 -o demux_data_test -k 4
+```
+
 Your output should look something like 
 ```
 checking modules
