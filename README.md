@@ -89,6 +89,8 @@ Now you should be ready to test it out
 singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i A.merged.bam -b GSM2560245_barcodes.tsv -f GRCh38_full_analysis_set_plus_decoy_hla.fa -t 8 -o demux_data_test -k 4
 ```
 
+This should require about 20gb of ram mostly because of the minimap2 indexing step. I might soon host an index and reference for human to make this less painful.
+
 Your output should look something like 
 ```
 checking modules
