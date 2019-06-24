@@ -2,7 +2,7 @@
 
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
 
-The inputs are just the possorted_genome_bam.bam (with index), and barcodes.tsv as output from [cellranger](https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/what-is-cell-ranger).
+The inputs are just the possorted_genome_bam.bam, and barcodes.tsv as output from [cellranger](https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/what-is-cell-ranger).
 souporcell is comprised of 6 steps with the first 3 using external tools and the final using the code provided here.
 1. Remapping ([minimap2](https://github.com/lh3/minimap2))
 2. Calling candidate variants ([freebayes](https://github.com/ekg/freebayes))
@@ -31,7 +31,7 @@ requires singularity >= 3.0
 which singularity
 singularity --version
 ```
-You should now be able to run souporcell_pipeline.py through the singularity container. Singularity automatically mounts the current working directory and directories downstream from where you run it, otherwise you would need to manually mount those directories. Therefor you can run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam/bai, cellranger barcodes file, and a reference fasta. The cellranger bam is located in the cellranger outs directory and is called possorted_genome_bam.bam. The barcodes file is located in the cellranger outs/filtered_gene_bc_matrices/<ref_name>/barcodes.tsv. The reference fasta should be of the same species but does not necessarily need to be the exact cellranger reference. 
+You should now be able to run souporcell_pipeline.py through the singularity container. Singularity automatically mounts the current working directory and directories downstream from where you run it, otherwise you would need to manually mount those directories. Therefor you can run it from a directory that is upstream of all of the inputs. Input files are the cellranger bam, cellranger barcodes file, and a reference fasta. The cellranger bam is located in the cellranger outs directory and is called possorted_genome_bam.bam. The barcodes file is located in the cellranger outs/filtered_gene_bc_matrices/<ref_name>/barcodes.tsv. The reference fasta should be of the same species but does not necessarily need to be the exact cellranger reference. 
 
 The options for using souporcell are:
 ```
@@ -76,7 +76,6 @@ The above command will run all six steps of the pipeline and it will require up 
 ## Practice/Testing data set: Demuxlet paper data
 ```
 wget https://sra-download.ncbi.nlm.nih.gov/traces/sra47/SRZ/005398/SRR5398235/A.merged.bam
-singularity exec souporcell.sif samtools index A.merged.bam
 wget ftp://ftp.ncbi.nlm.nih.gov/geo/samples/GSM2560nnn/GSM2560245/suppl/GSM2560245_barcodes.tsv.gz
 gunzip GSM2560245_barcodes.tsv.gz
 ```
