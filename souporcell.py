@@ -66,8 +66,7 @@ for (locus, counts) in loci_counts.items():
 used_loci = sorted(used_loci)
 used_loci_indices = {locus:i for (i, locus) in enumerate(used_loci)}
 loci = len(used_loci)
-#print("loci being used based on min_alt, min_ref, and max_loci "+str(loci))
-
+print("loci being used based on min_alt, min_ref, and max_loci "+str(loci))
 cells = len(cell_counts)
 cell_data = np.zeros((cells, max_loci))
 cell_loci = np.zeros((cells, max_loci))

@@ -17,7 +17,6 @@ parser.add_argument("--max_loci",required=False, default="2048",help="max loci p
 parser.add_argument("--ignore",required=False, default="False", help = "set to True to ignore data error assertions")
 args = parser.parse_args()
 
-
 print("checking modules")
 # importing all reqs to make sure things are installed
 import numpy as np
@@ -71,6 +70,9 @@ if not os.path.isfile(args.bam+".bai"):
 print("checking fasta")
 #test fasta load
 fasta = pyfasta.Fasta(args.fasta,key_fn=lambda key: key.split()[0])
+if not os.path.isfile(args.fasta+".fai"):
+    print("fasta index not found, creating")
+    subprocess.check_call(['samtools','faidx',args.fasta])
 
 bam = pysam.AlignmentFile(args.bam)
 total_reference_length = 0
@@ -234,6 +236,8 @@ procs = [None for x in range(args.threads)]
 any_running = True
 filehandles = []
 # run renamer in parallel manner
+print(len(regions))
+print(args.threads)
 print("running freebayes")
 while any_running:
     any_running = False
