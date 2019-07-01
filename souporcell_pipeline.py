@@ -228,7 +228,10 @@ for chrom in sorted(fasta.keys()):
             chrom_so_far = step_length - region_so_far + 1
             region_so_far = 0
 if len(region) > 0:
-    regions.append(region)
+    if len(regions) == args.threads:
+        regions[-1] = regions[-1] + region
+    else:
+        regions.append(region)
 
 region_vcfs = [[] for x in range(args.threads)]
 all_vcfs = []
