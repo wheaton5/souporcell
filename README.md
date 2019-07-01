@@ -16,12 +16,12 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 Download singularity image (1.3gb) (singularity is similar to docker but safe for clusters)
 Google drive makes it annoyingly difficult to download via the terminal. The following command will download and name souporcell.sif (singularity image file) to your current directory.
 ```
-wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1yaKHzWA-RKYsKK2WD9EMhPF6NuMkclhI' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1yaKHzWA-RKYsKK2WD9EMhPF6NuMkclhI" -O souporcell.sif && rm -rf /tmp/cookies.txt
+wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1xi_9kNaWoFzBCwL8CUt_NExC9Gwlcgmv' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1xi_9kNaWoFzBCwL8CUt_NExC9Gwlcgmv" -O souporcell.sif && rm -rf /tmp/cookies.txt
 ```
 ```
 ls -lah souporcell.sif
 ```
-This file is ~1.3Gb, so please make sure you have enough space for it. You can also download manually [here](https://drive.google.com/open?id=1yaKHzWA-RKYsKK2WD9EMhPF6NuMkclhI)
+This file is ~1.3Gb, so please make sure you have enough space for it. You can also download manually [here](https://drive.google.com/open?id=1xi_9kNaWoFzBCwL8CUt_NExC9Gwlcgmv)
 
 If you are running on a scientific cluster, they will likely have singularity, contact your sysadmin for more details. 
 If you are running on your own linux box you may need to install [singularity](https://www.sylabs.io/guides/3.2/user-guide/quick_start.html#quick-installation-steps)
