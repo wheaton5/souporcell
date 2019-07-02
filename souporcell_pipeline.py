@@ -69,7 +69,7 @@ if not os.path.isfile(args.bam+".bai"):
     subprocess.check_call(['samtools','index',args.bam])
 print("checking fasta")
 #test fasta load
-fasta = pyfasta.Fasta(args.fasta,key_fn=lambda key: key.split()[0])
+fasta = pyfasta.Fasta(args.fasta, key_fn=lambda key: key.split()[0])
 if not os.path.isfile(args.fasta+".fai"):
     print("fasta index not found, creating")
     subprocess.check_call(['samtools','faidx',args.fasta])
