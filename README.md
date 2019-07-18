@@ -1,4 +1,4 @@
-# souporcell ![souporcell](souporcell.png | width=100)
+# souporcell ![souporcell](https://github.com/wheaton5/souporcell/blob/master/souporcell.png | width=100)
 
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
 
