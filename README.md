@@ -1,4 +1,4 @@
-# souporcell
+# souporcell ![souporcell](souporcell.png)
 
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
 
