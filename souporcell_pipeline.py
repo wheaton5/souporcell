@@ -139,6 +139,8 @@ FNULL = open(os.devnull, 'w') # minimap too verbose
 # run minimap2
 minimap_tmp_files = []
 for index in range(args.threads):
+    if index > len(region_fastqs) or len(region_fastqs[index]) == 0:
+        continue
     output = args.out_dir+"/souporcell_minimap_tmp_"+str(index)+".sam"
     minimap_tmp_files.append(output)
     with open(output, 'w') as samfile:
