@@ -158,6 +158,8 @@ print("repopulating cell barcode and UMI tags")
 procs = []
 retag_files = []
 for index in range(args.threads):
+    if index > len(minimap_tmp_files) -1:
+        continue
     outfile = args.out_dir+"/souporcell_retag_tmp_"+str(index)+".bam"
     retag_files.append(outfile)
     p = subprocess.Popen(["retag.py","--sam",minimap_tmp_files[index],"--out",outfile])
@@ -177,6 +179,8 @@ sort_jobs = []
 file_handles = []
 filenames = []
 for index in range(args.threads):
+    if index > len(retag_files) - 1:
+        continue
     filename = args.out_dir+"/souporcell_retag_sorted_tmp_"+str(index)+".bam"
     filenames.append(filename)
     filehandle = open(filename,'wb')
