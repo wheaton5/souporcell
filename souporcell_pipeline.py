@@ -14,6 +14,7 @@ parser.add_argument("-p","--ploidy",required=False,default="2",help="ploidy, mus
 parser.add_argument("--min_alt",required=False, default="10", help="min alt to use locus, default = 10.")
 parser.add_argument("--min_ref",required=False, default="10", help="min ref to use locus, default = 10.")
 parser.add_argument("--max_loci",required=False, default="2048",help="max loci per cell, affects speed, default = 2048.")
+parser.add_argument("--common_variants",required=False, default=None, help = "common variant loci, must be vs same reference fasta")
 parser.add_argument("--ignore",required=False, default="False", help = "set to True to ignore data error assertions")
 args = parser.parse_args()
 
@@ -215,82 +216,86 @@ total_reference_length = 0
 for chrom in sorted(fasta.keys()):
     total_reference_length += len(fasta[chrom])
 
-regions = []
-region = []
-region_so_far = 0
-chrom_so_far = 0
-for chrom in sorted(fasta.keys()):
-    chrom_length = len(fasta[chrom])
-    while True:
-        if region_so_far + (chrom_length - chrom_so_far) < step_length:
-            region.append((chrom, chrom_so_far, chrom_length))
-            region_so_far += chrom_length - chrom_so_far
-            chrom_so_far = 0
-            break
-        else:
-            region.append((chrom, chrom_so_far, step_length - region_so_far))
-            regions.append(region)
-            region = []
-            chrom_so_far = step_length - region_so_far + 1
-            region_so_far = 0
-if len(region) > 0:
-    if len(regions) == args.threads:
-        regions[-1] = regions[-1] + region
-    else:
-        regions.append(region)
-
-region_vcfs = [[] for x in range(args.threads)]
-all_vcfs = []
-procs = [None for x in range(args.threads)]
-any_running = True
-filehandles = []
-# run renamer in parallel manner
-print(len(regions))
-print(args.threads)
-print("running freebayes")
-while any_running:
-    any_running = False
-    for (index, region) in enumerate(regions):
-        block = False
-        if procs[index]:
-            block = procs[index].poll() == None
-            if block:
-                any_running = True
+if not args.common_variants == None:
+    regions = []
+    region = []
+    region_so_far = 0
+    chrom_so_far = 0
+    for chrom in sorted(fasta.keys()):
+        chrom_length = len(fasta[chrom])
+        while True:
+            if region_so_far + (chrom_length - chrom_so_far) < step_length:
+                region.append((chrom, chrom_so_far, chrom_length))
+                region_so_far += chrom_length - chrom_so_far
+                chrom_so_far = 0
+                break
             else:
-                assert not(procs[index].returncode),"freebayes subprocess terminated abnormally with code "+str(procs[index].returncode)
-        if len(region_vcfs[index]) == len(region) - 1:
-            block = True
-        if not block:
-            sub_index = len(region_vcfs[index])
-            chrom = region[sub_index][0]
-            start = region[sub_index][1]
-            end = region[sub_index][2]
-            vcf_name = args.out_dir+"/souporcell_"+str(index)+"_"+str(sub_index)+".vcf"
-            filehandle = open(vcf_name,'w')
-            filehandles.append(filehandle)
-            p = subprocess.Popen(["freebayes","-f",args.fasta,"-r",chrom+":"+str(start)+"-"+str(end),"-iXu","-C","2",
-                "-q","20","-n", "3", "-E","1","-m","30","--min-coverage","6","--pooled-continuous",final_bam],stdout=filehandle)
-            all_vcfs.append(vcf_name)
-            procs[index] = p
-            region_vcfs[index].append(vcf_name)
-            any_running = True
-    time.sleep(10)
-for filehandle in filehandles:
-    filehandle.close()
-print("merging vcfs")
-with open(args.out_dir+"/souporcell_merged_vcf.vcf",'w') as vcfout:
-    subprocess.check_call(["bcftools","concat"]+all_vcfs,stdout=vcfout)
-subprocess.check_call(['rm']+all_vcfs)
-with open(args.out_dir+"/souporcell_merged_sorted_vcf.vcf",'w') as vcfout:
-    subprocess.check_call(['bcftools','sort',args.out_dir+"/souporcell_merged_vcf.vcf"],stdout=vcfout,stderr=FNULL)
-subprocess.check_call(['rm',args.out_dir+'/souporcell_merged_vcf.vcf'])
-subprocess.check_call(['bgzip',args.out_dir+"/souporcell_merged_sorted_vcf.vcf"])
-final_vcf = args.out_dir+"/souporcell_merged_sorted_vcf.vcf.gz"
-subprocess.check_call(['tabix','-p','vcf',final_vcf])
+                region.append((chrom, chrom_so_far, step_length - region_so_far))
+                regions.append(region)
+                region = []
+                chrom_so_far = step_length - region_so_far + 1
+                region_so_far = 0
+    if len(region) > 0:
+        if len(regions) == args.threads:
+            regions[-1] = regions[-1] + region
+        else:
+            regions.append(region)
+
+    region_vcfs = [[] for x in range(args.threads)]
+    all_vcfs = []
+    procs = [None for x in range(args.threads)]
+    any_running = True
+    filehandles = []
+    # run renamer in parallel manner
+    print(len(regions))
+    print(args.threads)
+    print("running freebayes")
+    while any_running:
+        any_running = False
+        for (index, region) in enumerate(regions):
+            block = False
+            if procs[index]:
+                block = procs[index].poll() == None
+                if block:
+                    any_running = True
+                else:
+                    assert not(procs[index].returncode),"freebayes subprocess terminated abnormally with code "+str(procs[index].returncode)
+            if len(region_vcfs[index]) == len(region) - 1:
+                block = True
+            if not block:
+                sub_index = len(region_vcfs[index])
+                chrom = region[sub_index][0]
+                start = region[sub_index][1]
+                end = region[sub_index][2]
+                vcf_name = args.out_dir+"/souporcell_"+str(index)+"_"+str(sub_index)+".vcf"
+                filehandle = open(vcf_name,'w')
+                filehandles.append(filehandle)
+                p = subprocess.Popen(["freebayes","-f",args.fasta,"-r",chrom+":"+str(start)+"-"+str(end),"-iXu","-C","2",
+                    "-q","20","-n", "3", "-E","1","-m","30","--min-coverage","6","--pooled-continuous",final_bam],stdout=filehandle)
+                all_vcfs.append(vcf_name)
+                procs[index] = p
+                region_vcfs[index].append(vcf_name)
+                any_running = True
+        time.sleep(10)
+    for filehandle in filehandles:
+        filehandle.close()
+    print("merging vcfs")
+    with open(args.out_dir+"/souporcell_merged_vcf.vcf",'w') as vcfout:
+        subprocess.check_call(["bcftools","concat"]+all_vcfs,stdout=vcfout)
+    subprocess.check_call(['rm']+all_vcfs)
+    with open(args.out_dir+"/souporcell_merged_sorted_vcf.vcf",'w') as vcfout:
+        subprocess.check_call(['bcftools','sort',args.out_dir+"/souporcell_merged_vcf.vcf"],stdout=vcfout,stderr=FNULL)
+    subprocess.check_call(['rm',args.out_dir+'/souporcell_merged_vcf.vcf'])
+    subprocess.check_call(['bgzip',args.out_dir+"/souporcell_merged_sorted_vcf.vcf"])
+    final_vcf = args.out_dir+"/souporcell_merged_sorted_vcf.vcf.gz"
+    subprocess.check_call(['tabix','-p','vcf',final_vcf])
 
 print("running vartrix")
 ref_mtx = args.out_dir+"/ref.mtx"
 alt_mtx = args.out_dir+"/alt.mtx"
+if not args.common_variants == None:
+    final_vcf = args.common_variants
+
 subprocess.check_call(["vartrix","--umi","--mapq","30","-b",final_bam,"-c",args.barcodes,"--scoring-method","coverage","--threads",str(args.threads),
     "--ref-matrix",ref_mtx, "--out-matrix",alt_mtx,"-v",final_vcf, "--fasta", args.fasta])
 
