@@ -2,6 +2,8 @@
 
 <img src="https://github.com/wheaton5/souporcell/blob/master/souporcell_star.png" width="100">
 
+Preprint manuscript of this method available here https://www.biorxiv.org/content/10.1101/699637v1
+
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
 
 The inputs are just the possorted_genome_bam.bam, and barcodes.tsv as output from [cellranger](https://support.10xgenomics.com/single-cell-gene-expression/software/pipelines/latest/what-is-cell-ranger).
