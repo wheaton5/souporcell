@@ -85,11 +85,12 @@ gunzip GSM2560245_barcodes.tsv.gz
 ```
 And if you don't have a human reference sitting around, grab one here
 ```
-wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/GRCh38_reference_genome/GRCh38_full_analysis_set_plus_decoy_hla.fa
+wget ftp://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/reference/human_g1k_v37.fasta.gz
+gunzip human_g1k_v37.fasta.gz
 ```
 Now you should be ready to test it out
 ```
-singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i A.merged.bam -b GSM2560245_barcodes.tsv -f GRCh38_full_analysis_set_plus_decoy_hla.fa -t 8 -o demux_data_test -k 4
+singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i A.merged.bam -b GSM2560245_barcodes.tsv -f human_g1k_v37.fasta -t 8 -o demux_data_test -k 4
 ```
 
 This should require about 20gb of ram mostly because of the minimap2 indexing step. I might soon host an index and reference for human to make this less painful.
