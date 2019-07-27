@@ -2,7 +2,7 @@
 
 <img src="https://github.com/wheaton5/souporcell/blob/master/souporcell_star.png" width="100">
 
-Preprint manuscript of this method available here https://www.biorxiv.org/content/10.1101/699637v1
+Preprint manuscript of this method available at https://www.biorxiv.org/content/10.1101/699637v1
 
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
 
