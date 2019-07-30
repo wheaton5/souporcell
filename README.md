@@ -20,7 +20,7 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 Download singularity image (1.3gb) (singularity is similar to docker but safe for clusters)
 Google drive makes it annoyingly difficult to download via the terminal. The following command will download and name souporcell.sif (singularity image file) to your current directory.
 ```
-wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1cbMuUJPwXd8BsUMY0XmtyWhu4Jj1ckOb' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1cbMuUJPwXd8BsUMY0XmtyWhu4Jj1ckOb" -O souporcell.sif && rm -rf /tmp/cookies.txt
+wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1g6lrOUWpTNWh46mo7TMvti8xnyCO2p4j' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1g6lrOUWpTNWh46mo7TMvti8xnyCO2p4j" -O souporcell.sif && rm -rf /tmp/cookies.txt
 ```
 ```
 ls -lah souporcell.sif
@@ -73,9 +73,20 @@ A typical command looks like
 ```
 singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
 ```
-The recommended number of threads is 8. 
+The recommended number of threads is 8.
 
 The above command will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up.
+
+If you have a common snps file you may want to use the --common_variants option with or without the --skip_remap option. This option will skip conversion to fastq, remapping with minimap2, and reattaching barcodes, and the --common_variants will remove the freebayes step. Each which will save a significant amount of time, but --skip-remap isn't recommended without --common_variants.
+
+Common variant files from 1k genomes filtered to variants >= 2% allele frequency in the population and limited to SNPs can be found here for GRCh38
+```
+wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=15s8zvIit2UO-2lnL2DnsL0YFoR3AWWRF' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=15s8zvIit2UO-2lnL2DnsL0YFoR3AWWRF" -O filtered_2p_1kgenomes_GRCh38.vcf && rm -rf /tmp/cookies.txt
+```
+or for hg19 here
+```
+wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1ICfIhpA4iGPEz_lAZf6RLMFQlrfgaskL' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1ICfIhpA4iGPEz_lAZf6RLMFQlrfgaskL" -O filtered_2p_1kgenomes_hg19.vcf && rm -rf /tmp/cookies.txt
+```
 
 ## Practice/Testing data set: Demuxlet paper data
 ```
