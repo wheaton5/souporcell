@@ -14,6 +14,7 @@ parser.add_argument("-p", "--ploidy", required = False, default = "2", help = "p
 parser.add_argument("--min_alt", required = False, default = "4", help = "min alt to use locus, default = 10.")
 parser.add_argument("--min_ref", required = False, default = "4", help = "min ref to use locus, default = 10.")
 parser.add_argument("--max_loci", required = False, default = "2048", help = "max loci per cell, affects speed, default = 2048.")
+parser.add_argument("--restarts", required = False, default = 15, type = int, help = "number of restarts in clustering, when there are > 12 clusters we recommend increasing this to avoid local minima")
 parser.add_argument("--common_variants",required = False, default = None, help = "common variant loci or known variant loci vcf, must be vs same reference fasta")
 parser.add_argument("--skip_remap", required = False, default = False, type = bool, help = "don't remap with minimap2 (not recommended unless in conjunction with --common_variants")
 parser.add_argument("--ignore", required = False, default = "False", help = "set to True to ignore data error assertions")
@@ -382,7 +383,7 @@ def souporcell(args, ref_mtx, alt_mtx):
     print("running souporcell clustering")
     cluster_file = args.out_dir + "/clusters_tmp.tsv"
     with open(args.out_dir + "/souporcell.log", 'w') as log:
-        subprocess.check_call(["souporcell.py", "-a", alt_mtx, "-r", ref_mtx, "-b", args.barcodes, "-k", args.clusters,
+        subprocess.check_call(["souporcell.py", "-a", alt_mtx, "-r", ref_mtx, "-b", args.barcodes, "-k", args.clusters,"--restarts",str(args.restarts),
             "-t", str(args.threads), "-l", args.max_loci, "--min_alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file],stdout=log,stderr=log) 
     subprocess.check_call(['touch', args.out_dir + "/clustering.done"])
     return(cluster_file)

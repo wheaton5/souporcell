@@ -15,6 +15,7 @@ parser.add_argument("--min_alt",required=False, help="minimum number of cells ex
 parser.add_argument("--min_ref",required=False, help="minimum number of cells expressing the ref allele to use the locus for clustering",default=10)
 parser.add_argument("-t","--threads",required=False, help="number of threads to run on",default=8)
 parser.add_argument("-o","--out",required=True,help="output file")
+parser.add_argument("--restarts",required=False, default = 15, type = int, help = "number of restarts to clustering")
 args = parser.parse_args()
 
 np.random.seed(4) # guarranteed random number chosen by dice roll, joke https://xkcd.com/221/
@@ -68,6 +69,10 @@ used_loci_indices = {locus:i for (i, locus) in enumerate(used_loci)}
 loci = len(used_loci)
 print("loci being used based on min_alt, min_ref, and max_loci "+str(loci))
 cells = len(cell_counts)
+#cells = 0
+#for cell in cell_counts.keys():
+#    cells = max(cell, cells)
+
 cell_data = np.zeros((cells, max_loci))
 cell_loci = np.zeros((cells, max_loci))
 weights = np.zeros((cells, max_loci))
@@ -117,7 +122,7 @@ cost = -tf.reduce_sum(logsum)
 optimizer = tf.train.AdamOptimizer(learning_rate=0.1).minimize(cost)
 
 post = sumtest#tf.transpose(tf.transpose(sumtest) - tf.reduce_logsumexp(sumtest,axis=1))
-repeats = 15
+repeats = args.restarts
 posteriors = []
 min_cost = None
 
