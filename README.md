@@ -75,7 +75,7 @@ singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/poss
 ```
 The recommended number of threads is 8.
 
-The above command will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up.
+The above command will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up. This dataset should take several hours to run on 8 threads mostly due to read processing, remapping, and variant calling.
 
 If you have a common snps file you may want to use the --common_variants option with or without the --skip_remap option. This option will skip conversion to fastq, remapping with minimap2, and reattaching barcodes, and the --common_variants will remove the freebayes step. Each which will save a significant amount of time, but --skip-remap isn't recommended without --common_variants.
 
