@@ -99,8 +99,6 @@ if not(args.known_genotypes == None):
                 sampledex = sample_index[sample]
                 sample_genotypes[sampledex][used_loci_indices[index]-1] = freq
 
-print(sample_genotypes)
-
 
 print("loci being used based on min_alt, min_ref, and max_loci "+str(loci))
 cells = len(cell_counts)
