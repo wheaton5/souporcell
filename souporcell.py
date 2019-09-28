@@ -84,20 +84,27 @@ if not(args.known_genotypes == None):
     sample_index = {samp: index for (index, samp) in enumerate(args.known_genotypes_sample_names)}
     sample_genotypes = np.random.random((len(args.known_genotypes_sample_names), loci))#[[np.random.random() for x in range(loci)] for y in range(len(args.known_genotypes_sample_names))]
     #sample_genotypes = np.matrix(sample_genotypes)
+    filled = 0
+    unfilled = 0
     for (index, rec) in enumerate(reader):
         if index in used_loci_set:
             for sample in args.known_genotypes_sample_names:
                 gt = rec.genotype(sample).data.GT
                 if gt == '0|0' or gt == '0/0':
                     freq = 1.0
+                    filled += 1
                 elif gt == '0|1' or gt == '1|0' or gt == '0/1':
                     freq = 0.5
+                    filled += 1
                 elif gt == '1|1' or gt == '1/1':
                     freq = 0.0
+                    filled += 1
                 else:
                     freq = np.random.random()
+                    unfilled += 1
                 sampledex = sample_index[sample]
-                sample_genotypes[sampledex][used_loci_indices[index]-1] = freq
+
+                sample_genotypes[sampledex][used_loci_indices[index]] = freq
 
 
 print("loci being used based on min_alt, min_ref, and max_loci "+str(loci))
@@ -137,6 +144,7 @@ rng = np.random
 if args.known_genotypes == None:
     phi = tf.get_variable(name="phi",shape=(loci, K), initializer = tf.initializers.random_uniform(minval = 0, maxval = 1), dtype = tf.float64)
 else:
+    args.restarts = 1
     init = tf.constant(sample_genotypes.T)
     phi = tf.get_variable(name="phi", initializer = init, dtype = tf.float64)
 input_data = tf.placeholder("float64",(cells,max_loci)) #tf.constant("input",np.asmatrix(data))
@@ -202,7 +210,7 @@ for repeat in range(repeats):
         posteriors.append((c,posterior))
 
 
-posterior = sorted(posteriors)
+posterior = sorted(posteriors, key=lambda x: x[0])
 print(posterior[0])
 posterior = posterior[0][1]
 
