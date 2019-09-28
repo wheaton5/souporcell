@@ -14,9 +14,16 @@ parser.add_argument("-p", "--ploidy", required = False, default = "2", help = "p
 parser.add_argument("--min_alt", required = False, default = "4", help = "min alt to use locus, default = 10.")
 parser.add_argument("--min_ref", required = False, default = "4", help = "min ref to use locus, default = 10.")
 parser.add_argument("--max_loci", required = False, default = "2048", help = "max loci per cell, affects speed, default = 2048.")
-parser.add_argument("--restarts", required = False, default = 15, type = int, help = "number of restarts in clustering, when there are > 12 clusters we recommend increasing this to avoid local minima")
-parser.add_argument("--common_variants",required = False, default = None, help = "common variant loci or known variant loci vcf, must be vs same reference fasta")
-parser.add_argument("--skip_remap", required = False, default = False, type = bool, help = "don't remap with minimap2 (not recommended unless in conjunction with --common_variants")
+parser.add_argument("--restarts", required = False, default = 15, type = int, 
+    help = "number of restarts in clustering, when there are > 12 clusters we recommend increasing this to avoid local minima")
+parser.add_argument("--common_variants", required = False, default = None, 
+    help = "common variant loci or known variant loci vcf, must be vs same reference fasta")
+parser.add_argument("--known_genotypes", required = False, default = None, 
+    help = "known variants per clone in population vcf mode, must be .vcf right now we dont accept gzip or bcf sorry")
+parser.add_argument("--known_genotypes_sample_names", required = False, nargs = '+', default = None, 
+    help = "which samples in population vcf from known genotypes option represent the donors in your sample")
+parser.add_argument("--skip_remap", required = False, default = False, type = bool, 
+    help = "don't remap with minimap2 (not recommended unless in conjunction with --common_variants")
 parser.add_argument("--ignore", required = False, default = "False", help = "set to True to ignore data error assertions")
 args = parser.parse_args()
 
@@ -46,6 +53,20 @@ with open(args.barcodes) as barcodes:
 
 assert len(bc_set) > 50, "Fewer than 50 barcodes in barcodes file? We expect 1 barcode per line."
 
+assert not(not(args.known_genotypes == None) and not(args.common_variants == None)), "cannot set both know_genotypes and common_variants"
+if args.known_genotypes_sample_names:
+    assert not(args.known_genotypes == None), "if you specify known_genotype_sample_names, must specify known_genotypes option"
+    assert len(args.known_genotypes_sample_names) == int(args.clusters), "length of known genotype sample names should be equal to k/clusters"
+if args.known_genotypes:
+    reader = vcf.Reader(open(args.known_genotypes))
+    assert len(reader.samples) >= int(args.clusters), "number of samples in known genotype vcfs is less than k/clusters"
+    if args.known_genotypes_sample_names == None:
+        args.known_genotypes_sample_names = reader.samples
+    for sample in args.known_genotypes_sample_names:
+        assert sample in args.known_genotypes_sample_names, "not all samples in known genotype sample names option are in the known genotype samples vcf?"
+
+    
+
 #test bam load
 bam = pysam.AlignmentFile(args.bam)
 num_cb = 0
@@ -62,8 +83,8 @@ for (index,read) in enumerate(bam):
     if read.has_tag("UB"):
         num_umi += 1
 if not args.ignore == "True":
-    if args.skip_remap and args.common_variants == None:
-        assert False, "WARNING: skip_remap enables without common_variants. Variant calls will be of poorer quality. Turn on --ignore True to ignore this warning"
+    if args.skip_remap and args.common_variants == None and args.known_genotypes == None:
+        assert False, "WARNING: skip_remap enables without common_variants or known genotypes. Variant calls will be of poorer quality. Turn on --ignore True to ignore this warning"
         
     assert float(num_cb) / float(num_read_test) > 0.5, "Less than 50% of first 100000 reads have cell barcode tag (CB), turn on --ignore True to ignore"
     assert float(num_umi) / float(num_read_test) > 0.5, "Less than 50% of first 100000 reads have UMI tag (UB), turn on --ignore True to ignore"
@@ -192,7 +213,6 @@ def retag(args, minimap_tmp_files):
     print("sorting retagged bam files")
     # sort retagged files
     sort_jobs = []
-    file_handles = []
     filenames = []
     with open(args.out_dir + "/retag.err", 'w') as retagerr:
         for index in range(args.threads):
@@ -200,18 +220,13 @@ def retag(args, minimap_tmp_files):
                 continue
             filename = args.out_dir + "/souporcell_retag_sorted_tmp_" + str(index) + ".bam"
             filenames.append(filename)
-            filehandle = open(filename, 'wb')
-            file_handles.append(filehandle)
-            p = subprocess.Popen(["samtools", "sort", retag_files[index]], stdout = filehandle, stderr = retagerr)
+            p = subprocess.Popen(["samtools", "sort", retag_files[index], filename[:-4]], stderr = retagerr)
             sort_jobs.append(p)
         
     # wait for jobs to finish
     for job in sort_jobs:
         job.wait()
         assert not(job.returncode), "samtools sort ended abnormally with code " + str(job.returncode)
-    #close files
-    for filehandle in file_handles:
-        filehandle.close()
 
     #clean up unsorted bams
     for bam in retag_files:
@@ -238,8 +253,12 @@ def freebayes(args, bam, fasta):
     for chrom in sorted(fasta.keys()):
        total_reference_length += len(fasta[chrom])
     step_length = int(math.ceil(total_reference_length/int(args.threads)))
-    if not args.common_variants == None:
-        print("using common variants")
+    if not(args.common_variants == None) or not(args.known_genotypes == None):
+        if not(args.common_variants == None):
+            print("using common variants")
+        if not(args.known_genotypes == None):
+            print("using known genotypes")
+            args.common_variants = args.known_genotypes
         with open(args.out_dir+"/depth.bed", 'w') as bed:
             ps = subprocess.Popen(['samtools', 'depth', bam], stdout = subprocess.PIPE)
             min_cov = int(args.min_ref)+int(args.min_alt)
@@ -379,12 +398,17 @@ def vartrix(args, final_vcf, final_bam):
     subprocess.check_call(['rm', args.out_dir + "/vartrix.out", args.out_dir + "/vartrix.err"])
     return((ref_mtx, alt_mtx))
 
-def souporcell(args, ref_mtx, alt_mtx):
+def souporcell(args, ref_mtx, alt_mtx, final_vcf):
     print("running souporcell clustering")
     cluster_file = args.out_dir + "/clusters_tmp.tsv"
     with open(args.out_dir + "/souporcell.log", 'w') as log:
-        subprocess.check_call(["souporcell.py", "-a", alt_mtx, "-r", ref_mtx, "-b", args.barcodes, "-k", args.clusters,"--restarts",str(args.restarts),
-            "-t", str(args.threads), "-l", args.max_loci, "--min_alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file],stdout=log,stderr=log) 
+        cmd = ["souporcell.py", "-a", alt_mtx, "-r", ref_mtx, "-b", args.barcodes, "-k", args.clusters,"--restarts",str(args.restarts),
+            "-t", str(args.threads), "-l", args.max_loci, "--min_alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file]
+        if not(args.known_genotypes == None):
+            cmd.extend(['--known_genotypes', final_vcf])
+            if not(args.known_genotypes_sample_names == None):
+                cmd.extend(['--known_genotypes_sample_names']+ args.known_genotypes_sample_names)
+        subprocess.check_call(cmd, stdout = log, stderr = log) 
     subprocess.check_call(['touch', args.out_dir + "/clustering.done"])
     return(cluster_file)
 
@@ -443,7 +467,7 @@ if not os.path.exists(args.out_dir + "/vartrix.done"):
 ref_mtx = args.out_dir + "/ref.mtx"
 alt_mtx = args.out_dir + "/alt.mtx"
 if not(os.path.exists(args.out_dir + "/clustering.done")):
-    souporcell(args, ref_mtx, alt_mtx)
+    souporcell(args, ref_mtx, alt_mtx, final_vcf)
 cluster_file = args.out_dir + "/clusters_tmp.tsv"
 if not(os.path.exists(args.out_dir + "/troublet.done")):
     doublets(args, ref_mtx, alt_mtx, cluster_file)

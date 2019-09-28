@@ -3,6 +3,7 @@
 import numpy as np
 import argparse
 import tensorflow as tf
+import vcf
 
 parser = argparse.ArgumentParser(
     description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering with tensorflow.")
@@ -16,9 +17,14 @@ parser.add_argument("--min_ref",required=False, help="minimum number of cells ex
 parser.add_argument("-t","--threads",required=False, help="number of threads to run on",default=8)
 parser.add_argument("-o","--out",required=True,help="output file")
 parser.add_argument("--restarts",required=False, default = 15, type = int, help = "number of restarts to clustering")
+parser.add_argument("--known_genotypes",required=False, default=None, 
+    help="known genotypes population vcf, must be the same vcf used in vartrix (souporcell_pipeline deals with this)")
+parser.add_argument("--known_genotypes_sample_names",required=False, default=None, nargs='+', 
+    help="known genotypes sample names (list with spaces), sample names must be present in known genotypes vcf")
+
 args = parser.parse_args()
 
-np.random.seed(4) # guarranteed random number chosen by dice roll, joke https://xkcd.com/221/
+np.random.seed(4) # chosen by dice roll, guaranteed to be random --joke-- https://xkcd.com/221/
 
 min_alt = int(args.min_alt)
 min_ref = int(args.min_ref)
@@ -60,13 +66,42 @@ with open(args.ref_matrix) as alt:
         if count > 0:
             loci_counts[locus][0]+=1
 
+used_loci_set = set()
 used_loci = []
 for (locus, counts) in loci_counts.items():
     if counts[0] >= min_ref and counts[1] >= min_alt:
         used_loci.append(locus-1)
+        used_loci_set.add(locus-1)
 used_loci = sorted(used_loci)
 used_loci_indices = {locus:i for (i, locus) in enumerate(used_loci)}
 loci = len(used_loci)
+
+if not(args.known_genotypes == None):
+    reader = vcf.Reader(open(args.known_genotypes))
+    if args.known_genotypes_sample_names == None:
+        args.known_genotypes_sample_names = reader.samples
+    assert int(args.num_clusters) == len(args.known_genotypes_sample_names), "clusters must equal samples for known_genotypes"
+    sample_index = {samp: index for (index, samp) in enumerate(args.known_genotypes_sample_names)}
+    sample_genotypes = np.random.random((len(args.known_genotypes_sample_names), loci))#[[np.random.random() for x in range(loci)] for y in range(len(args.known_genotypes_sample_names))]
+    #sample_genotypes = np.matrix(sample_genotypes)
+    for (index, rec) in enumerate(reader):
+        if index in used_loci_set:
+            for sample in args.known_genotypes_sample_names:
+                gt = rec.genotype(sample).data.GT
+                if gt == '0|0' or gt == '0/0':
+                    freq = 1.0
+                elif gt == '0|1' or gt == '1|0' or gt == '0/1':
+                    freq = 0.5
+                elif gt == '1|1' or gt == '1/1':
+                    freq = 0.0
+                else:
+                    freq = np.random.random()
+                sampledex = sample_index[sample]
+                sample_genotypes[sampledex][used_loci_indices[index]-1] = freq
+
+print(sample_genotypes)
+
+
 print("loci being used based on min_alt, min_ref, and max_loci "+str(loci))
 cells = len(cell_counts)
 #cells = 0
@@ -101,7 +136,11 @@ data_loci = cell_loci
 #print("done setting up data, ready for tensorflow")
 
 rng = np.random
-phi = tf.get_variable(name="phi",shape=(loci,K), initializer=tf.initializers.random_uniform(minval=0, maxval=1),dtype=tf.float64)
+if args.known_genotypes == None:
+    phi = tf.get_variable(name="phi",shape=(loci, K), initializer = tf.initializers.random_uniform(minval = 0, maxval = 1), dtype = tf.float64)
+else:
+    init = tf.constant(sample_genotypes.T)
+    phi = tf.get_variable(name="phi", initializer = init, dtype = tf.float64)
 input_data = tf.placeholder("float64",(cells,max_loci)) #tf.constant("input",np.asmatrix(data))
 input_loci = tf.placeholder("int32",(cells,max_loci))
 weight_data = tf.placeholder("float64",(cells,max_loci)) #tf.constant("weights",np.asmatrix(weights))
