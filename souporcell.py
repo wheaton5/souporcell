@@ -41,15 +41,16 @@ with open(args.alt_matrix) as alt:
     alt.readline()
     tokens = alt.readline().strip().split()
     cells = int(tokens[1])
+    cell_counts = {x: {} for x in range(1, cells + 1)}
     total_loci = int(tokens[0])
     for line in alt:
         tokens = line.strip().split()
         locus = int(tokens[0])
         cell = int(tokens[1])
-        cell_counts.setdefault(cell,{})
+        cell_counts.setdefault(cell, {})
         count = int(tokens[2])
-        cell_counts[cell][locus] = [0,count]
-        loci_counts.setdefault(locus,[0,0])
+        cell_counts[cell][locus] = [0, count]
+        loci_counts.setdefault(locus, [0, 0])
         if count > 0:
             loci_counts[locus][1] += 1
 with open(args.ref_matrix) as alt:
@@ -62,16 +63,16 @@ with open(args.ref_matrix) as alt:
         cell = int(tokens[1])
         count = int(tokens[2])
         cell_counts[cell][locus][0] = count
-        loci_counts.setdefault(locus,[0,0])
+        loci_counts.setdefault(locus, [0, 0])
         if count > 0:
-            loci_counts[locus][0]+=1
+            loci_counts[locus][0] += 1
 
 used_loci_set = set()
 used_loci = []
 for (locus, counts) in loci_counts.items():
     if counts[0] >= min_ref and counts[1] >= min_alt:
-        used_loci.append(locus-1)
-        used_loci_set.add(locus-1)
+        used_loci.append(locus - 1)
+        used_loci_set.add(locus - 1)
 used_loci = sorted(used_loci)
 used_loci_indices = {locus:i for (i, locus) in enumerate(used_loci)}
 loci = len(used_loci)
@@ -83,7 +84,6 @@ if not(args.known_genotypes == None):
     assert int(args.num_clusters) == len(args.known_genotypes_sample_names), "clusters must equal samples for known_genotypes"
     sample_index = {samp: index for (index, samp) in enumerate(args.known_genotypes_sample_names)}
     sample_genotypes = np.random.random((len(args.known_genotypes_sample_names), loci))#[[np.random.random() for x in range(loci)] for y in range(len(args.known_genotypes_sample_names))]
-    #sample_genotypes = np.matrix(sample_genotypes)
     filled = 0
     unfilled = 0
     for (index, rec) in enumerate(reader):
@@ -126,31 +126,27 @@ for cell in cell_counts.keys():
                 ref_c = locus_counts[0]
                 alt_c = locus_counts[1]
                 if ref_c + alt_c > 0:
-                    cell_data[cell-1][index] = float(ref_c)/float(ref_c+alt_c)
-                    cell_loci[cell-1][index] = used_loci_indices[locus-1]
-                    weights[cell-1][index] = 1.0
+                    cell_data[cell - 1][index] = float(ref_c)/float(ref_c + alt_c) if ref_c + alt_c > 0 else 0.0
+                    cell_loci[cell - 1][index] = used_loci_indices[locus - 1]
+                    weights[cell - 1][index] = 1.0
                     index += 1
                 total_lost += 1
 
 
 data = cell_data
 data_loci = cell_loci
-#print(data)
-#print(weights)
-#print("total alleles lost by limiting to max_loci "+str(total_lost))
-#print("done setting up data, ready for tensorflow")
 
 rng = np.random
 if args.known_genotypes == None:
-    phi = tf.get_variable(name="phi",shape=(loci, K), initializer = tf.initializers.random_uniform(minval = 0, maxval = 1), dtype = tf.float64)
+    phi = tf.get_variable(name = "phi",shape=(loci, K), initializer = tf.initializers.random_uniform(minval = 0, maxval = 1), dtype = tf.float64)
 else:
     args.restarts = 1
     init = tf.constant(sample_genotypes.T)
     phi = tf.get_variable(name="phi", initializer = init, dtype = tf.float64)
-input_data = tf.placeholder("float64",(cells,max_loci)) #tf.constant("input",np.asmatrix(data))
-input_loci = tf.placeholder("int32",(cells,max_loci))
-weight_data = tf.placeholder("float64",(cells,max_loci)) #tf.constant("weights",np.asmatrix(weights))
-loci_per_cell = tf.placeholder("float64",(cells))
+input_data = tf.placeholder("float64", (cells, max_loci)) #tf.constant("input",np.asmatrix(data))
+input_loci = tf.placeholder("int32", (cells, max_loci))
+weight_data = tf.placeholder("float64", (cells, max_loci)) #tf.constant("weights",np.asmatrix(weights))
+loci_per_cell = tf.placeholder("float64", (cells))
 trans = tf.transpose(input_data)
 broad_trans = tf.broadcast_to(trans,[K,max_loci,cells])
 untrans = tf.transpose(broad_trans)
