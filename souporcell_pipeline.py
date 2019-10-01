@@ -220,7 +220,7 @@ def retag(args, minimap_tmp_files):
                 continue
             filename = args.out_dir + "/souporcell_retag_sorted_tmp_" + str(index) + ".bam"
             filenames.append(filename)
-            p = subprocess.Popen(["samtools", "sort", retag_files[index], filename[:-4]], stderr = retagerr)
+            p = subprocess.Popen(["samtools", "sort", retag_files[index], '-o', filename], stderr = retagerr)
             sort_jobs.append(p)
         
     # wait for jobs to finish
