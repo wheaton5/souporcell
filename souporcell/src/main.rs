@@ -4,7 +4,9 @@ extern crate hashbrown;
 extern crate rand;
 extern crate statrs;
 extern crate itertools;
+extern crate rayon;
 
+use rayon::prelude::*;
 
 use rand::Rng;
 use rand::rngs::StdRng;
@@ -25,19 +27,75 @@ fn main() {
     let params = load_params();
     let cell_barcodes = load_barcodes(&params); 
     let (loci_used, total_cells, cell_data, index_to_locus, locus_to_index) = load_cell_data(&params);
-    souporcell_main(loci_used, cell_data, &params);
+    souporcell_main(loci_used, cell_data, &params, cell_barcodes);
 }
 
-fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params) {
-    let seed = [4u8; 32];
-    let mut rng: StdRng = SeedableRng::from_seed(seed);
-    for _ in 0..1 {
-        let cluster_centers: Vec<Vec<f32>> = init_cluster_centers(loci_used, &cell_data, params, new_seed(&mut rng));
-        EM(loci_used, cluster_centers, &cell_data ,params);
+struct ThreadData {
+    best_log_probabilities: Vec<Vec<f32>>,
+    best_total_log_probability: f32,
+    rng: StdRng,
+    solves_per_thread: usize,
+}
+
+impl ThreadData {
+    fn from_seed(seed: [u8; 32], solves_per_thread: usize) -> ThreadData {
+        ThreadData {
+            best_log_probabilities: Vec::new(),
+            best_total_log_probability: f32::NEG_INFINITY,
+            rng: SeedableRng::from_seed(seed),
+            solves_per_thread: solves_per_thread,
+        }
     }
 }
 
-fn EM(loci: usize, mut cluster_centers: Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params) {
+fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, barcodes: Vec<String>) {
+    let seed = [4u8; 32];
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
+    let mut threads: Vec<ThreadData> = Vec::new();
+    let solves_per_thread = ((params.restarts as f32)/((params.threads as f32).ceil())) as usize;
+    for _ in 0..params.threads {
+        threads.push(ThreadData::from_seed(new_seed(&mut rng), solves_per_thread));
+    }
+    threads.par_iter_mut().for_each(|thread_data| {
+        for _ in 0..thread_data.solves_per_thread {
+            let cluster_centers: Vec<Vec<f32>> = init_cluster_centers(loci_used, &cell_data, params, &mut thread_data.rng);
+            let (log_loss, log_probabilities) = EM(loci_used, cluster_centers, &cell_data ,params);
+            if log_loss > thread_data.best_total_log_probability {
+                thread_data.best_total_log_probability = log_loss;
+                thread_data.best_log_probabilities = log_probabilities;
+            }
+        }
+    });
+    let mut best_log_probability = f32::NEG_INFINITY;
+    let mut best_log_probabilities: Vec<Vec<f32>> = Vec::new();
+    for thread_data in threads {
+        if thread_data.best_total_log_probability > best_log_probability {
+            best_log_probability = thread_data.best_total_log_probability;
+            best_log_probabilities = thread_data.best_log_probabilities;
+        }
+    }
+    //fin
+    // SHOW YOURSELF!
+    //println!("finished with {}",best_log_probability);
+    for (bc, log_probs) in barcodes.iter().zip(best_log_probabilities.iter()) {
+        let mut best = 0;
+        let mut best_lp = f32::NEG_INFINITY;
+        for index in 0..log_probs.len() {
+            if log_probs[index] > best_lp {
+                best = index;
+                best_lp = log_probs[index];
+            }
+        }
+        print!("{}\t{}\t",bc, best);
+        for index in 0..log_probs.len() {
+            print!("{}",log_probs[index]);
+            if index < log_probs.len() - 1 { print!("\t"); } 
+        } print!("\n");
+    }
+
+}
+
+fn EM(loci: usize, mut cluster_centers: Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params) -> (f32, Vec<Vec<f32>>) {
     let mut sums: Vec<Vec<f32>> = Vec::new();
     let mut denoms: Vec<Vec<f32>> = Vec::new();
     for cluster in 0..params.num_clusters {
@@ -53,11 +111,15 @@ fn EM(loci: usize, mut cluster_centers: Vec<Vec<f32>>, cell_data: &Vec<CellData>
 
     let mut change = 1000.0;
     let mut iterations = 0;
-    let mut cell_probabilities: Vec<Vec<f32>> = Vec::new();
-    for _cell in cell_data {
-        cell_probabilities.push(Vec::new());
-    }
+    //let mut cell_probabilities: Vec<Vec<f32>> = Vec::new();
+    //for _cell in cell_data {
+    //    cell_probabilities.push(Vec::new());
+    //}
     let mut total_log_loss = f32::NEG_INFINITY;
+    let mut final_log_probabilities = Vec::new();
+    for _cell in 0..cell_data.len() {
+        final_log_probabilities.push(Vec::new());
+    }
 
     while change > 0.01 && iterations < 1000 {
     //while iterations < 150 {
@@ -65,29 +127,32 @@ fn EM(loci: usize, mut cluster_centers: Vec<Vec<f32>>, cell_data: &Vec<CellData>
 
         reset_sums_denoms(loci, &mut sums, &mut denoms, &cluster_centers, params.num_clusters);
         for (celldex, cell) in cell_data.iter().enumerate() {
-            let log_probabilities = binomial_loss(cell, &cluster_centers, log_prior, celldex);
+            let log_probabilities = sum_of_squares_loss(cell, &cluster_centers, log_prior, celldex);
             //println!("cell {} logps = {:?} log loss {}", celldex, log_probabilities, log_sum_exp(&log_probabilities));
             log_loss += log_sum_exp(&log_probabilities);
             let probabilities = normalize_in_log(&log_probabilities);
             update_centers_average(&mut sums, &mut denoms, cell, &probabilities);
             //println!("normalized probabilities {:?}", probabilities);
-            cell_probabilities[celldex] = probabilities;
+            //cell_probabilities[celldex] = probabilities;
+            final_log_probabilities[celldex] = log_probabilities;
         }
+        total_log_loss = log_loss;
 
         change = update_final(loci, &sums, &denoms, &mut cluster_centers);
         iterations += 1;
-        println!("iteration {}: change {} log loss {}", iterations, change, log_loss);
+        //println!("iteration {}: change {} log loss {}", iterations, change, log_loss);
     }
-    for (celldex, probabilities) in cell_probabilities.iter().enumerate() {
-        println!("cell {} with {} loci, cluster probabilities {:?}", celldex, cell_data[celldex].loci.len(), probabilities);
-    }
+    //for (celldex, probabilities) in cell_probabilities.iter().enumerate() {
+    //    println!("cell {} with {} loci, cluster probabilities {:?}", celldex, cell_data[celldex].loci.len(), probabilities);
+    //}
     //for center in 0..cluster_centers.len() {
     //    for locus in 0..cluster_centers[0].len() {
     //        println!("cluster {} locus {} {}", center, locus, cluster_centers[center][locus]);
     //    }
     //}
+    //println!("total log probability = {}",total_log_loss);
 
-    //total_log_loss
+    (total_log_loss, final_log_probabilities)
 }
 
 
@@ -169,63 +234,54 @@ fn update_centers_flat(sums: &mut Vec<Vec<f32>>, denoms: &mut Vec<Vec<f32>>, cel
 fn update_centers_average(sums: &mut Vec<Vec<f32>>, denoms: &mut Vec<Vec<f32>>, cell: &CellData, probabilities: &Vec<f32>) {
     for locus in 0..cell.loci.len() {
         for (cluster, probability) in probabilities.iter().enumerate() {
-
             sums[cluster][cell.loci[locus]] += probabilities[cluster] * (cell.alt_counts[locus] as f32);
             denoms[cluster][cell.loci[locus]] += probabilities[cluster] * ((cell.alt_counts[locus] + cell.ref_counts[locus]) as f32);
-            //println!("updating cluster {} locus {} for cell with probability {} sum {} denom {}, totals {} {}",
-            //    cluster, cell.loci[locus], probabilities[cluster], probabilities[cluster] * (cell.alt_counts[locus] as f32),
-            //    probabilities[cluster] * ((cell.alt_counts[locus] + cell.ref_counts[locus]) as f32),
-            //    sums[cluster][cell.loci[locus]], denoms[cluster][cell.loci[locus]]);
         }
     }
 }
 
-fn init_cluster_centers(loci_used: usize, cell_data: &Vec<CellData>, params: &Params, seed: [u8; 32]) -> Vec<Vec<f32>> {
+fn init_cluster_centers(loci_used: usize, cell_data: &Vec<CellData>, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {
     if let Some(known_genotypes) = &params.known_genotypes {
-        return init_cluster_centers_known_genotypes(loci_used, params, seed);
+        return init_cluster_centers_known_genotypes(loci_used, params, rng);
     } else if let Some(assigned_cells) = &params.known_cell_assignments {
-        return init_cluster_centers_known_cells(loci_used, &cell_data, params, seed);
+        return init_cluster_centers_known_cells(loci_used, &cell_data, params, rng);
     } else {
         match params.initialization_strategy {
-            ClusterInit::KmeansPP => init_cluster_centers_kmeans_pp(loci_used, &cell_data, params, seed),
-            ClusterInit::RandomUniform => init_cluster_centers_uniform(loci_used, params, seed),
-            ClusterInit::RandomAssignment => init_cluster_centers_random_assignment(loci_used, &cell_data, params, seed),
-            ClusterInit::MiddleVariance => init_cluster_centers_middle_variance(loci_used, &cell_data, params, seed),
+            ClusterInit::KmeansPP => init_cluster_centers_kmeans_pp(loci_used, &cell_data, params, rng),
+            ClusterInit::RandomUniform => init_cluster_centers_uniform(loci_used, params, rng),
+            ClusterInit::RandomAssignment => init_cluster_centers_random_assignment(loci_used, &cell_data, params, rng),
+            ClusterInit::MiddleVariance => init_cluster_centers_middle_variance(loci_used, &cell_data, params, rng),
         }
     }
 }
 
-fn init_cluster_centers_known_genotypes(loci: usize, params: &Params, seed: [u8; 32]) -> Vec<Vec<f32>> {
-    let mut rng: StdRng = SeedableRng::from_seed(seed);
+fn init_cluster_centers_known_genotypes(loci: usize, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {
     assert!(false, "known genotypes not yet implemented");
     Vec::new()
 }
 
-fn init_cluster_centers_known_cells(loci: usize, cell_data: &Vec<CellData>, params: &Params, seed: [u8; 32]) -> Vec<Vec<f32>> {
+fn init_cluster_centers_known_cells(loci: usize, cell_data: &Vec<CellData>, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {
     assert!(false, "known cell assignments not yet implemented");
     Vec::new()
 }
 
-fn init_cluster_centers_kmeans_pp(loci: usize, cell_data: &Vec<CellData>, params: &Params, seed: [u8; 32]) -> Vec<Vec<f32>> {
+fn init_cluster_centers_kmeans_pp(loci: usize, cell_data: &Vec<CellData>, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {
     assert!(false, "kmeans++ not yet implemented");
     Vec::new()
 }
 
-fn init_cluster_centers_uniform(loci: usize, params: &Params, seed: [u8; 32]) -> Vec<Vec<f32>> {
-    let mut rng: StdRng = SeedableRng::from_seed(seed);
+fn init_cluster_centers_uniform(loci: usize, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {
     let mut centers: Vec<Vec<f32>> = Vec::new();
     for cluster in 0..params.num_clusters {
         centers.push(Vec::new());
         for _ in 0..loci {
-            centers[cluster].push(rng.gen().min(0.9999).max(0.0001));
+            centers[cluster].push(rng.gen::<f32>().min(0.9999).max(0.0001));
         }
     }
     centers
 }
 
-fn init_cluster_centers_random_assignment(loci: usize, cell_data: &Vec<CellData>, params: &Params, seed: [u8; 32]) -> Vec<Vec<f32>> {
-    let mut rng: StdRng = SeedableRng::from_seed(seed);
-
+fn init_cluster_centers_random_assignment(loci: usize, cell_data: &Vec<CellData>, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {
     let mut sums: Vec<Vec<f32>> = Vec::new();
     let mut denoms: Vec<Vec<f32>> = Vec::new();
     for cluster in 0..params.num_clusters {
@@ -256,7 +312,7 @@ fn init_cluster_centers_random_assignment(loci: usize, cell_data: &Vec<CellData>
     centers
 }
 
-fn init_cluster_centers_middle_variance(loci: usize, cell_data: &Vec<CellData>, params: &Params, seed: [u8; 32]) -> Vec<Vec<f32>> {
+fn init_cluster_centers_middle_variance(loci: usize, cell_data: &Vec<CellData>, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {
     assert!(false, "middle variance not yet implemented");
     Vec::new()
 }
@@ -384,6 +440,7 @@ struct Params {
     known_genotypes: Option<String>,
     known_genotypes_sample_names: Vec<String>,
     initialization_strategy: ClusterInit,
+    threads: usize,
 }
 
 #[derive(Clone)]
@@ -432,7 +489,7 @@ fn load_params() -> Params {
         sample_names.push(name.to_string());
     }
 
-    let initialization_strategy = params.value_of("initialization_strategy").unwrap_or("kmeans++");
+    let initialization_strategy = params.value_of("initialization_strategy").unwrap_or("random_cell_assignment");
     let initialization_strategy = match initialization_strategy {
         "kmeans++" => ClusterInit::KmeansPP,
         "random_uniform" => ClusterInit::RandomUniform,
@@ -440,9 +497,12 @@ fn load_params() -> Params {
         "middle_variance" => ClusterInit::MiddleVariance,
         _ => {
             assert!(false, "initialization strategy must be one of kmeans++, random_uniform, random_cell_assignment, middle_variance");
-            ClusterInit::KmeansPP
+            ClusterInit::RandomAssignment
         },
     };
+
+    let threads = params.value_of("threads").unwrap_or("1");
+    let threads = threads.to_string().parse::<usize>().unwrap();
 
     Params{
         ref_mtx: ref_mtx.to_string(),
@@ -457,6 +517,7 @@ fn load_params() -> Params {
         known_genotypes: known_genotypes,
         known_genotypes_sample_names: sample_names,
         initialization_strategy: initialization_strategy,
+        threads: threads,
     }
 }
 
