@@ -35,35 +35,39 @@ struct ThreadData {
     best_total_log_probability: f32,
     rng: StdRng,
     solves_per_thread: usize,
+    thread_num: usize,
 }
 
 impl ThreadData {
-    fn from_seed(seed: [u8; 32], solves_per_thread: usize) -> ThreadData {
+    fn from_seed(seed: [u8; 32], solves_per_thread: usize, thread_num: usize) -> ThreadData {
         ThreadData {
             best_log_probabilities: Vec::new(),
             best_total_log_probability: f32::NEG_INFINITY,
             rng: SeedableRng::from_seed(seed),
             solves_per_thread: solves_per_thread,
+            thread_num: thread_num,
         }
     }
 }
 
 fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, barcodes: Vec<String>) {
-    let seed = [4u8; 32];
+    let seed = [params.seed; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     let mut threads: Vec<ThreadData> = Vec::new();
-    let solves_per_thread = ((params.restarts as f32)/((params.threads as f32).ceil())) as usize;
-    for _ in 0..params.threads {
-        threads.push(ThreadData::from_seed(new_seed(&mut rng), solves_per_thread));
+    let solves_per_thread = ((params.restarts as f32)/(params.threads as f32)).ceil() as usize;
+    for i in 0..params.threads {
+        threads.push(ThreadData::from_seed(new_seed(&mut rng), solves_per_thread, i));
     }
     threads.par_iter_mut().for_each(|thread_data| {
-        for _ in 0..thread_data.solves_per_thread {
+        for iteration in 0..thread_data.solves_per_thread {
             let cluster_centers: Vec<Vec<f32>> = init_cluster_centers(loci_used, &cell_data, params, &mut thread_data.rng);
-            let (log_loss, log_probabilities) = EM(loci_used, cluster_centers, &cell_data ,params);
+            let (log_loss, log_probabilities) = EM(loci_used, cluster_centers, &cell_data ,params, iteration, thread_data.thread_num);
             if log_loss > thread_data.best_total_log_probability {
                 thread_data.best_total_log_probability = log_loss;
                 thread_data.best_log_probabilities = log_probabilities;
             }
+            eprintln!("thread {} iteration {} done with {}, best so far {}", 
+                thread_data.thread_num, iteration, log_loss, thread_data.best_total_log_probability);
         }
     });
     let mut best_log_probability = f32::NEG_INFINITY;
@@ -74,6 +78,8 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
             best_log_probabilities = thread_data.best_log_probabilities;
         }
     }
+    eprintln!("best total log probability = {}", best_log_probability);
+    //println!("here");
     //fin
     // SHOW YOURSELF!
     //println!("finished with {}",best_log_probability);
@@ -95,15 +101,15 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
 
 }
 
-fn EM(loci: usize, mut cluster_centers: Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params) -> (f32, Vec<Vec<f32>>) {
+fn EM(loci: usize, mut cluster_centers: Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params, epoch: usize, thread_num: usize) -> (f32, Vec<Vec<f32>>) {
     let mut sums: Vec<Vec<f32>> = Vec::new();
     let mut denoms: Vec<Vec<f32>> = Vec::new();
     for cluster in 0..params.num_clusters {
         sums.push(Vec::new());
         denoms.push(Vec::new());
         for index in 0..loci {
-            sums[cluster].push(cluster_centers[cluster][index]*0.1);
-            denoms[cluster].push(0.1);
+            sums[cluster].push(1.0);
+            denoms[cluster].push(2.0); // psuedocounts
         }
     }
 
@@ -116,31 +122,50 @@ fn EM(loci: usize, mut cluster_centers: Vec<Vec<f32>>, cell_data: &Vec<CellData>
     //    cell_probabilities.push(Vec::new());
     //}
     let mut total_log_loss = f32::NEG_INFINITY;
+    let mut total_log_loss_binom = f32::NEG_INFINITY;
     let mut final_log_probabilities = Vec::new();
     for _cell in 0..cell_data.len() {
         final_log_probabilities.push(Vec::new());
     }
+    let log_loss_change_limit = 0.01*(cell_data.len() as f32);
+    let temp_steps = 9;
+    let mut last_log_loss = f32::NEG_INFINITY;
+    for temp_step in 0..temp_steps {
+        //eprintln!("temp step {}",temp_step);
+        let mut log_loss_change = 10000.0;
+        //let mut cluster_cells_weighted: Vec<f32> = Vec::new();
+        //for cluster in 0..params.num_clusters { cluster_cells_weighted.push(0.0); }
+        while (log_loss_change > log_loss_change_limit && iterations < 1000) {
+            //for cluster in 0..params.num_clusters { cluster_cells_weighted[cluster] = 0.0; } 
+            //let mut log_loss = 0.0;
+            let mut log_binom_loss = 0.0;
+            reset_sums_denoms(loci, &mut sums, &mut denoms, &cluster_centers, params.num_clusters);
+            for (celldex, cell) in cell_data.iter().enumerate() {
+                //let log_probabilities = sum_of_squares_loss(cell, &cluster_centers, log_prior, celldex);
+                let log_binoms = binomial_loss(cell, &cluster_centers, log_prior, celldex);
+                log_binom_loss += log_sum_exp(&log_binoms);
+                //eprintln!("cell {} loci {} total_alleles {}", celldex, cell.loci.len(), cell.total_alleles);
+                //log_loss += log_sum_exp(&log_binoms);
+                let mut temp = (cell.total_alleles/(20.0 * 2.0f32.powf((temp_step as f32)))).max(1.0);
+                if temp_step == temp_steps - 1 { temp = 1.0; }
+                //if temp_step > 0 { temp = 1.0; }
+                let probabilities = normalize_in_log_with_temp(&log_binoms, temp);
+                //for cluster in 0..params.num_clusters { cluster_cells_weighted[cluster] += probabilities[cluster]; }
+                update_centers_average(&mut sums, &mut denoms, cell, &probabilities);
+            
+                //println!("normalized probabilities {:?}", probabilities);
+                //cell_probabilities[celldex] = probabilities;
+                final_log_probabilities[celldex] = log_binoms;//log_probabilities;
+            }
 
-    while change > 0.01 && iterations < 1000 {
-    //while iterations < 150 {
-        let mut log_loss = 0.0;
+            total_log_loss = log_binom_loss;
+            log_loss_change = log_binom_loss - last_log_loss;//log_loss - last_log_loss;
+            last_log_loss = log_binom_loss;//log_loss;
 
-        reset_sums_denoms(loci, &mut sums, &mut denoms, &cluster_centers, params.num_clusters);
-        for (celldex, cell) in cell_data.iter().enumerate() {
-            let log_probabilities = sum_of_squares_loss(cell, &cluster_centers, log_prior, celldex);
-            //println!("cell {} logps = {:?} log loss {}", celldex, log_probabilities, log_sum_exp(&log_probabilities));
-            log_loss += log_sum_exp(&log_probabilities);
-            let probabilities = normalize_in_log(&log_probabilities);
-            update_centers_average(&mut sums, &mut denoms, cell, &probabilities);
-            //println!("normalized probabilities {:?}", probabilities);
-            //cell_probabilities[celldex] = probabilities;
-            final_log_probabilities[celldex] = log_probabilities;
+            update_final(loci, &sums, &denoms, &mut cluster_centers);
+            iterations += 1;
+            eprintln!("binomial\t{}\t{}\t{}\t{}\t{}\t{}", thread_num, epoch, iterations, temp_step, log_binom_loss, log_loss_change);//, cluster_cells_weighted);
         }
-        total_log_loss = log_loss;
-
-        change = update_final(loci, &sums, &denoms, &mut cluster_centers);
-        iterations += 1;
-        //println!("iteration {}: change {} log loss {}", iterations, change, log_loss);
     }
     //for (celldex, probabilities) in cell_probabilities.iter().enumerate() {
     //    println!("cell {} with {} loci, cluster probabilities {:?}", celldex, cell_data[celldex].loci.len(), probabilities);
@@ -155,7 +180,6 @@ fn EM(loci: usize, mut cluster_centers: Vec<Vec<f32>>, cell_data: &Vec<CellData>
     (total_log_loss, final_log_probabilities)
 }
 
-
 fn sum_of_squares_loss(cell_data: &CellData, cluster_centers: &Vec<Vec<f32>>, log_prior: f32, cellnum: usize) -> Vec<f32> {
     let mut log_probabilities: Vec<f32> = Vec::new();
     for (cluster, center) in cluster_centers.iter().enumerate() {
@@ -169,6 +193,7 @@ fn sum_of_squares_loss(cell_data: &CellData, cluster_centers: &Vec<Vec<f32>>, lo
 
 fn binomial_loss(cell_data: &CellData, cluster_centers: &Vec<Vec<f32>>, log_prior: f32, cellnum: usize) -> Vec<f32> {
     let mut log_probabilities: Vec<f32> = Vec::new();
+    let mut sum = 0.0;
     for (cluster, center) in cluster_centers.iter().enumerate() {
         log_probabilities.push(log_prior);
         for (locus_index, locus) in cell_data.loci.iter().enumerate() {
@@ -176,7 +201,13 @@ fn binomial_loss(cell_data: &CellData, cluster_centers: &Vec<Vec<f32>>, log_prio
                 (cell_data.alt_counts[locus_index] as f32) * center[*locus].ln() + 
                 (cell_data.ref_counts[locus_index] as f32) * (1.0 - center[*locus]).ln();
         }
+        sum += log_probabilities[cluster];
+        //log_probabilities[cluster] /= 30.0;//(cell_data.loci.len() as f32)/10.0;
+        
     }
+
+    
+    //eprintln!("{} loci {:?}",cell_data.loci.len(), log_probabilities);
     log_probabilities
 }
 
@@ -195,8 +226,20 @@ fn normalize_in_log(log_probs: &Vec<f32>) -> Vec<f32> { // takes in a log_probab
     normalized_probabilities
 }
 
-fn update_final(loci: usize, sums: &Vec<Vec<f32>>, denoms: &Vec<Vec<f32>>, cluster_centers: &mut Vec<Vec<f32>>) -> f32 {
-    let mut change = 0.0;
+fn normalize_in_log_with_temp(log_probs: &Vec<f32>, temp: f32) -> Vec<f32> {
+    let mut normalized_probabilities: Vec<f32> = Vec::new();
+    let mut new_log_probs: Vec<f32> = Vec::new();
+    for log_prob in log_probs {
+        new_log_probs.push(log_prob/temp);
+    }
+    let sum = log_sum_exp(&new_log_probs);
+    for i in 0..log_probs.len() {
+        normalized_probabilities.push((new_log_probs[i]-sum).exp());
+    }
+    normalized_probabilities 
+}
+
+fn update_final(loci: usize, sums: &Vec<Vec<f32>>, denoms: &Vec<Vec<f32>>, cluster_centers: &mut Vec<Vec<f32>>) {
     //println!("final update");
     for locus in 0..loci {
         //println!("locus {}", locus);
@@ -204,19 +247,17 @@ fn update_final(loci: usize, sums: &Vec<Vec<f32>>, denoms: &Vec<Vec<f32>>, clust
             let update = sums[cluster][locus]/denoms[cluster][locus];
             //println!("cluster {} previous {} updating with {}/{}={}", cluster, cluster_centers[cluster][locus], 
             //    sums[cluster][locus], denoms[cluster][locus], update);
-            change += (update - cluster_centers[cluster][locus]).powf(2.0);
-            cluster_centers[cluster][locus] = update.min(0.9999).max(0.0001);//max(0.0001, min(0.9999, update));
+            cluster_centers[cluster][locus] = update.min(0.99).max(0.01);//max(0.0001, min(0.9999, update));
         }
     }
-    change
 }
 
 fn reset_sums_denoms(loci: usize, sums: &mut Vec<Vec<f32>>, 
     denoms: &mut Vec<Vec<f32>>, cluster_centers: &Vec<Vec<f32>>, num_clusters: usize) {
     for cluster in 0..num_clusters {
         for index in 0..loci {
-            sums[cluster][index] = cluster_centers[cluster][index]*0.1;
-            denoms[cluster][index] = 0.1;
+            sums[cluster][index] = 1.0;
+            denoms[cluster][index] = 2.0;
         }
     }
 }
@@ -304,7 +345,7 @@ fn init_cluster_centers_random_assignment(loci: usize, cell_data: &Vec<CellData>
     }
     for cluster in 0..params.num_clusters {
         for locus in 0..loci {
-            sums[cluster][locus] = sums[cluster][locus]/denoms[cluster][locus];
+            sums[cluster][locus] = sums[cluster][locus]/denoms[cluster][locus] + (rng.gen::<f32>()/2.0 - 0.25);
             sums[cluster][locus] = sums[cluster][locus].min(0.9999).max(0.0001);
         }
     }
@@ -330,6 +371,7 @@ fn load_cell_data(params: &Params) -> (usize, usize, Vec<CellData>, Vec<usize>, 
     let mut total_cells = 0;
     let mut all_loci: HashSet<usize> = HashSet::new();
     let mut locus_cell_counts: HashMap<usize, [u32; 2]> = HashMap::new();
+    let mut locus_umi_counts: HashMap<usize, [u32; 2]> = HashMap::new();
     let mut locus_counts: HashMap<usize, HashMap<usize, [u32; 2]>> = HashMap::new();
     for (alt_line, ref_line) in izip!(alt_reader.lines(), ref_reader.lines()) {
         let alt_line = alt_line.expect("cannot read alt mtx");
@@ -345,8 +387,9 @@ fn load_cell_data(params: &Params) -> (usize, usize, Vec<CellData>, Vec<usize>, 
             assert!(locus < total_loci);
             assert!(cell < total_cells);
             let cell_counts = locus_cell_counts.entry(locus).or_insert([0; 2]);
-            if ref_count > 0 { cell_counts[0] += 1; }
-            if alt_count > 0 { cell_counts[1] += 1; }
+            let umi_counts = locus_umi_counts.entry(locus).or_insert([0; 2]);
+            if ref_count > 0 { cell_counts[0] += 1; umi_counts[0] += ref_count; }
+            if alt_count > 0 { cell_counts[1] += 1; umi_counts[1] += alt_count; }
             let cell_counts = locus_counts.entry(locus).or_insert(HashMap::new());
             cell_counts.insert(cell, [ref_count, alt_count]);
         } else if line_number == 2 {
@@ -372,7 +415,8 @@ fn load_cell_data(params: &Params) -> (usize, usize, Vec<CellData>, Vec<usize>, 
     let mut locus_index = 0;
     for locus in all_loci {
         let cell_counts = locus_cell_counts.get(&locus).unwrap();
-        if cell_counts[0] >= params.min_ref && cell_counts[1] >= params.min_alt {
+        let umi_counts = locus_umi_counts.get(&locus).unwrap();
+        if cell_counts[0] >= params.min_ref && cell_counts[1] >= params.min_alt && umi_counts[0] >= params.min_ref_umis && umi_counts[1] >= params.min_alt_umis {
             used_loci.insert(locus);
             index_to_locus.push(locus);
             locus_to_index.insert(locus, locus_index);
@@ -384,12 +428,14 @@ fn load_cell_data(params: &Params) -> (usize, usize, Vec<CellData>, Vec<usize>, 
                 cell_data[*cell].allele_fractions.push((counts[1] as f32)/((counts[0] + counts[1]) as f32));
                 cell_data[*cell].log_binomial_coefficient.push(
                      statrs::function::factorial::ln_binomial((counts[1]+counts[0]) as u64, counts[1] as u64) as f32);
+                cell_data[*cell].total_alleles += (counts[0] + counts[1]) as f32;
                 //println!("cell {} locus {} alt {} ref {} fraction {}",*cell, locus_index, counts[1], counts[0], 
                 //    (counts[1] as f32)/((counts[0] + counts[1]) as f32));
             }
             locus_index += 1;
         }
     }
+    eprintln!("total loci used {}",used_loci.len());
     
     (used_loci.len(), total_cells, cell_data, index_to_locus, locus_to_index)
 }
@@ -400,6 +446,7 @@ struct CellData {
     alt_counts: Vec<u32>,
     ref_counts: Vec<u32>,
     loci: Vec<usize>,
+    total_alleles: f32,
 }
 
 impl CellData {
@@ -410,6 +457,7 @@ impl CellData {
             alt_counts: Vec::new(),
             ref_counts: Vec::new(),
             loci: Vec::new(),
+            total_alleles: 0.0,
         }
     }
 }
@@ -434,13 +482,15 @@ struct Params {
     num_clusters: usize,
     min_alt: u32,
     min_ref: u32,
-    output_dir: String,
+    min_alt_umis: u32,
+    min_ref_umis: u32,
     restarts: u32,
     known_cell_assignments: Option<String>,
     known_genotypes: Option<String>,
     known_genotypes_sample_names: Vec<String>,
     initialization_strategy: ClusterInit,
     threads: usize,
+    seed: u8,
 }
 
 #[derive(Clone)]
@@ -463,7 +513,6 @@ fn load_params() -> Params {
     let min_alt = min_alt.to_string().parse::<u32>().unwrap();
     let min_ref = params.value_of("min_ref").unwrap_or("4");
     let min_ref = min_ref.to_string().parse::<u32>().unwrap();
-    let output_dir = params.value_of("output_dir").unwrap();
     let restarts = params.value_of("restarts").unwrap_or("100");
     let restarts = restarts.to_string().parse::<u32>().unwrap();
     let known_cell_assignments = params.value_of("known_cell_assignments");
@@ -489,7 +538,7 @@ fn load_params() -> Params {
         sample_names.push(name.to_string());
     }
 
-    let initialization_strategy = params.value_of("initialization_strategy").unwrap_or("random_cell_assignment");
+    let initialization_strategy = params.value_of("initialization_strategy").unwrap_or("random_uniform");
     let initialization_strategy = match initialization_strategy {
         "kmeans++" => ClusterInit::KmeansPP,
         "random_uniform" => ClusterInit::RandomUniform,
@@ -504,6 +553,16 @@ fn load_params() -> Params {
     let threads = params.value_of("threads").unwrap_or("1");
     let threads = threads.to_string().parse::<usize>().unwrap();
 
+    let seed = params.value_of("seed").unwrap_or("4");
+    let seed = seed.to_string().parse::<u8>().unwrap();
+
+    let min_ref_umis = params.value_of("min_ref_umis").unwrap_or("0");
+    let min_ref_umis = min_ref_umis.to_string().parse::<u32>().unwrap();
+    
+    
+    let min_alt_umis = params.value_of("min_alt_umis").unwrap_or("0");
+    let min_alt_umis = min_alt_umis.to_string().parse::<u32>().unwrap();
+
     Params{
         ref_mtx: ref_mtx.to_string(),
         alt_mtx: alt_mtx.to_string(),
@@ -511,13 +570,15 @@ fn load_params() -> Params {
         num_clusters: num_clusters,
         min_alt: min_alt,
         min_ref: min_ref,
-        output_dir: output_dir.to_string(),
         restarts: restarts,
         known_cell_assignments: known_cell_assignments,
         known_genotypes: known_genotypes,
         known_genotypes_sample_names: sample_names,
         initialization_strategy: initialization_strategy,
         threads: threads,
+        seed: seed,
+        min_alt_umis: min_alt_umis,
+        min_ref_umis: min_ref_umis,
     }
 }
 

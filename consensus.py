@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import pystan
 import argparse
+import vcf
 
 parser = argparse.ArgumentParser(description="consensus genotype calling and ambient RNA estimation")
 parser.add_argument("-c","--clusters",required=True,help="tsv cluster file from the troublet output")
@@ -13,6 +14,16 @@ parser.add_argument("--vcf_out",required=True, help="vcf output")
 parser.add_argument("-v","--vcf",required=True,help="vcf file from which alt and ref matrix were created")
 args = parser.parse_args()
 
+
+def myopen(fname): return open(fname, 'rb') if fname.endswith('.gz') else open(fname)
+vcftemplate = vcf.Reader(myopen(args.vcf))
+potential_RNAedits = set()
+excluded = 0
+for (index, rec) in enumerate(vcftemplate):
+    if (rec.REF == "T" and str(rec.ALT[0]) == "C") or (rec.REF == "A" and str(rec.ALT[0]) == "G"):
+        potential_RNAedits.add(index+1)
+        excluded += 1
+print(str(excluded) +" excluded for potential RNA editing")
 
 cell_genotype_consensus = """
 data {
@@ -161,8 +172,9 @@ doublets = set()
 with open(args.clusters) as dubs:
     dubs.readline() # get rid of header
     for (index, line) in enumerate(dubs):
-        if "doublet" in line:
+        if "doublet" in line or "unassigned" in line:
             doublets.add(index)
+print(str(len(doublets))+ " doublets excluded from genotype and ambient RNA estimation")
 import subprocess
 
 
@@ -170,6 +182,7 @@ cell_clusters = {}
 cluster_cells = {}
 max_cluster = -1
 total_cells = 0
+cell_size = {}
 with open(args.clusters) as assignments:
     assignments.readline()
     for (index, line) in enumerate(assignments):
@@ -230,11 +243,16 @@ with open(args.ref_matrix) as ref:
 total_cells = cells
 loci_for_soup = {}
 index = 0
-min_value = 40
+min_value = 20
+excluded = 0
 for (locus, counts) in sorted(loci_full_counts.items()):
     if counts[0] > min_value and counts[1] > min_value:
-        loci_for_soup[locus-1] = index
-        index += 1
+        if not(locus in potential_RNAedits):
+            loci_for_soup[locus-1] = index
+            index += 1
+        else:
+            excluded += 1
+print(str(excluded)+ " not used for soup calculation due to possible RNA edit")
 min_ref = 0
 min_alt = 1
 used_loci = []
@@ -332,14 +350,12 @@ with open(args.soup_out,'w') as soup:
     soup.write("ambient RNA estimated as "+str(float(fit['p_soup'])*100)+"%")
 #with open("cluster_genotypes.tsv",'w') as geno:
 #    geno.write("chrom\tpos\tref\talt\t"+"\t".join([i for i in range(max_cluster+1)])+"\n")
-import vcf
 import math
 import numpy as np
 import scipy
 from collections import namedtuple
 CallData = namedtuple('CallData','GT AO RO T E GO GN')
 import gzip
-def myopen(fname): return open(fname, 'rb') if fname.endswith('.gz') else open(fname)
 vcftemplate = vcf.Reader(myopen(args.vcf))
 vcfreader = vcf.Reader(myopen(args.vcf))
 import math

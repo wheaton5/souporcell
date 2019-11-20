@@ -34,3 +34,13 @@ args:
         takes_value: true
         multiple: true
         help: print debug info for index of cells listed
+    - doublet_threshold:
+        long: doublet_threshold
+        required: false
+        takes_value: true
+        help: doublet posterior threshold, defaults to 0.90
+    - singlet_threshold:
+        long: singlet_threshold
+        required: false
+        takes_value: true
+        help: singlet posterior threshold, defaults to 0.90

@@ -37,12 +37,6 @@ args:
         takes_value: true
         required: false
         help: minimum number of cells containing the ref allele for the variant to be used for clustering 
-    - output_dir:
-        long: output_dir
-        short: o
-        takes_value: true
-        required: true
-        help: output directory
     - restarts:
         long: restarts
         short: r
@@ -77,3 +71,18 @@ args:
         required: false
         takes_value: true
         help: number of threads to use
+    - seed:
+        long: seed
+        required: false
+        takes_value: true
+        help: optional random seed
+    - min_alt_umis:
+        long: min_alt_umis
+        required: false
+        takes_value: true
+        help: min alt umis to use locus for clustering
+    - min_ref_umis:
+        long: min_ref_umis
+        required: false
+        takes_value: true
+        help: min ref umis to use locus for clustering

@@ -17,9 +17,9 @@ bamout = pysam.AlignmentFile(args.out,'wb', template=bam)
 for read in bam:
     qname = read.qname
     tokens = qname.split(";")
-    assert(len(tokens) == 3)
-    read.set_tag("CB",tokens[1])
-    read.set_tag("UB",tokens[2])
+    #assert(len(tokens) == 3)
+    read.set_tag("CB",tokens[-2])
+    read.set_tag("UB",tokens[-1])
     bamout.write(read)
 
 bamout.close()

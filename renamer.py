@@ -42,14 +42,14 @@ with open(args.out,'w') as fastq:
         full_umi = cell_barcode + UMI + str(pos)
         if full_umi in recent_umis:
             continue
-        recent_umis[full_umi] = pos
-        if index % 10000 == 0:
-            keys_to_remove = []
-            for (key, val) in recent_umis.items():
-                if val - pos > 2000:
-                    keys_to_remove.append(key)
-            for key in keys_to_remove:
-                del recent_umis[key]
+        #recent_umis[full_umi] = pos
+        #if index % 10000 == 0:
+        #    keys_to_remove = []
+        #    for (key, val) in recent_umis.items():
+        #        if val - pos > 200:
+        #            keys_to_remove.append(key)
+        #    for key in keys_to_remove:
+        #        del recent_umis[key]
     
         readname = read.qname
         if read.has_tag("CB") and read.get_tag("CB") in cell_barcodes:

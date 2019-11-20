@@ -14,7 +14,7 @@ parser.add_argument("-p", "--ploidy", required = False, default = "2", help = "p
 parser.add_argument("--min_alt", required = False, default = "4", help = "min alt to use locus, default = 10.")
 parser.add_argument("--min_ref", required = False, default = "4", help = "min ref to use locus, default = 10.")
 parser.add_argument("--max_loci", required = False, default = "2048", help = "max loci per cell, affects speed, default = 2048.")
-parser.add_argument("--restarts", required = False, default = 15, type = int, 
+parser.add_argument("--restarts", required = False, default = 100, type = int, 
     help = "number of restarts in clustering, when there are > 12 clusters we recommend increasing this to avoid local minima")
 parser.add_argument("--common_variants", required = False, default = None, 
     help = "common variant loci or known variant loci vcf, must be vs same reference fasta")
@@ -29,17 +29,31 @@ args = parser.parse_args()
 
 print("checking modules")
 # importing all reqs to make sure things are installed
+print("importing numpy")
 import numpy as np
-import tensorflow as tf
+print("importing scipy")
 import scipy
+print("importing gzip")
 import gzip
+print("importing math")
 import math
+print("importing pystan")
 import pystan
+print("importing pyvcf")
 import vcf
+print("importing pysam")
 import pysam
+
+print("importing pyfasta")
 import pyfasta
+
+print("importing subprocess")
 import subprocess
+
+print("importing time")
 import time
+
+print("importing os")
 import os
 print("imports done")
 
@@ -159,7 +173,7 @@ def make_fastqs(args):
                 procs[index] = p
                 region_fastqs[index].append(fq_name)
                 any_running = True
-        time.sleep(20)
+        time.sleep(0.5)
     with open(args.out_dir + "/fastqs.done", 'w') as done:
         for fastqs in region_fastqs:
             done.write("\t".join(fastqs) + "\n")
@@ -178,6 +192,14 @@ def remap(args, region_fastqs, all_fastqs):
             subprocess.check_call(['cat'] + region_fastqs[index], stdout = tmpfq)
         with open(output, 'w') as samfile:
             with open(args.out_dir + "/minimap.err",'w') as minierr:
+                minierr.write("mapping\n")
+                #subprocess.check_call(["hisat2", "-p", str(args.threads), "-q", args.out_dir + "/tmp.fq", "-x", 
+                #args.fasta[:-3],
+                #"-S", output], stderr =minierr)
+                cmd = ["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21",
+                    "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
+                    "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq"]
+                minierr.write(" ".join(cmd)+"\n")
                 subprocess.check_call(["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21", 
                     "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
                     "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq"], 
@@ -343,7 +365,7 @@ def freebayes(args, bam, fasta):
                     
                 cmd = ["freebayes", "-f", args.fasta, "-iXu", "-C", "2",
                     "-q", "20", "-n", "3", "-E", "1", "-m", "30", 
-                    "--min-coverage", "6", "--pooled-continuous", "--limit-coverage", "50000", "--skip-coverage", "50000"]
+                    "--min-coverage", str(args.min_alt+args.min_ref), "--pooled-continuous", "--skip-coverage", "100000"]
                 cmd.extend(["-r", chrom + ":" + str(start) + "-" + str(end)])
                 cmd.append(bam)
                 errhandle.write(" ".join(cmd) + "\n")
@@ -352,7 +374,7 @@ def freebayes(args, bam, fasta):
                 procs[index] = p
                 region_vcfs[index].append(vcf_name)
                 any_running = True
-        time.sleep(10)
+        time.sleep(1)
     for filehandle in filehandles:
         filehandle.close()
     for errhandle in errhandles:
@@ -401,14 +423,20 @@ def vartrix(args, final_vcf, final_bam):
 def souporcell(args, ref_mtx, alt_mtx, final_vcf):
     print("running souporcell clustering")
     cluster_file = args.out_dir + "/clusters_tmp.tsv"
-    with open(args.out_dir + "/souporcell.log", 'w') as log:
-        cmd = ["souporcell.py", "-a", alt_mtx, "-r", ref_mtx, "-b", args.barcodes, "-k", args.clusters,"--restarts",str(args.restarts),
-            "-t", str(args.threads), "-l", args.max_loci, "--min_alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file]
-        if not(args.known_genotypes == None):
-            cmd.extend(['--known_genotypes', final_vcf])
-            if not(args.known_genotypes_sample_names == None):
-                cmd.extend(['--known_genotypes_sample_names']+ args.known_genotypes_sample_names)
-        subprocess.check_call(cmd, stdout = log, stderr = log) 
+    with open(cluster_file, 'w') as log:
+        with open(args.out_dir+"/clusters.err",'w') as err:
+            directory = os.path.dirname(os.path.realpath(__file__))
+            #cmd = ["souporcell.py", "-a", alt_mtx, "-r", ref_mtx, "-b", args.barcodes, "-k", args.clusters,"--restarts",str(args.restarts),
+            #    "-t", str(args.threads), "-l", args.max_loci, "--min_alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file]
+            cmd = [directory+"/souporcell/target/release/souporcell", "-k",args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
+                "--restarts", str(args.restarts), "-b", args.barcodes, "--min_ref", args.min_ref, "--min_alt", args.min_alt, 
+                "--threads", str(args.threads)]
+            print(" ".join(cmd))
+            if not(args.known_genotypes == None):
+                cmd.extend(['--known_genotypes', final_vcf])
+                if not(args.known_genotypes_sample_names == None):
+                    cmd.extend(['--known_genotypes_sample_names']+ args.known_genotypes_sample_names)
+            subprocess.check_call(cmd, stdout = log, stderr = err) 
     subprocess.check_call(['touch', args.out_dir + "/clustering.done"])
     return(cluster_file)
 
