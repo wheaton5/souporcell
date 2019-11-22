@@ -127,7 +127,7 @@ def make_fastqs(args):
     for chrom in bam.references:
         chrom_length = bam.get_reference_length(chrom)
         while True:
-            if region_so_far + (chrom_length - chrom_so_far) < step_length:
+            if region_so_far + (chrom_length - chrom_so_far) <= step_length:
                 region.append((chrom, chrom_so_far, chrom_length))
                 region_so_far += chrom_length - chrom_so_far
                 chrom_so_far = 0
@@ -136,7 +136,7 @@ def make_fastqs(args):
                 region.append((chrom, chrom_so_far, step_length - region_so_far))
                 regions.append(region)
                 region = []
-                chrom_so_far = step_length - region_so_far + 1
+                chrom_so_far += step_length - region_so_far + 1
                 region_so_far = 0
     if len(region) > 0:
         regions.append(region)
