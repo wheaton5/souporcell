@@ -323,7 +323,7 @@ def freebayes(args, bam, fasta):
                 region.append((chrom, chrom_so_far, step_length - region_so_far))
                 regions.append(region)
                 region = []
-                chrom_so_far = step_length - region_so_far + 1
+                chrom_so_far += step_length - region_so_far + 1
                 region_so_far = 0
     if len(region) > 0:
         if len(regions) == args.threads:
