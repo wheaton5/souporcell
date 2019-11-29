@@ -60,13 +60,19 @@ while True:
             pos2 = None
     elif not(chr1 == last_chr1):
         while not(chr2 == chr1):
-            (chr2, pos2, ref2, alt2) = vcf2.readline().strip().split()[0:4]
+            try:
+                (chr2, pos2, ref2, alt2) = vcf2.readline().strip().split()[0:4]
+            except:
+                break
             locus2 += 1
         last_chr1 = chr1
         last_chr2 = chr2
     elif not(chr2 == last_chr2):
         while not(chr1 == chr2):
-            (chr1, pos1, ref1, alt1) = vcf1.readline().strip().split()[0:4]
+            try:
+                (chr1, pos1, ref1, alt1) = vcf1.readline().strip().split()[0:4]
+            except:
+                break
             locus1 += 1
         last_chr1 = chr1
         last_chr2 = chr2
