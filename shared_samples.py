@@ -30,8 +30,8 @@ locus1_matches = []
 locus2_matches = []
 locus1_matchset = {}
 locus2_matchset = {}
-
-while True:
+breakme = False
+while not breakme:
     if pos1 == None:
         try:
             (chr1, pos1, ref1, alt1) = vcf1.readline().strip().split()[0:4] 
@@ -63,6 +63,7 @@ while True:
             try:
                 (chr2, pos2, ref2, alt2) = vcf2.readline().strip().split()[0:4]
             except:
+                breakme = True
                 break
             locus2 += 1
         last_chr1 = chr1
@@ -72,6 +73,7 @@ while True:
             try:
                 (chr1, pos1, ref1, alt1) = vcf1.readline().strip().split()[0:4]
             except:
+                breakme = True
                 break
             locus1 += 1
         last_chr1 = chr1
