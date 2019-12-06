@@ -169,7 +169,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
             let mut assignment: Vec<String> = Vec::new(); assignment.push(cell_barcode.to_string());
             if best_singleton_log_prob > best_doublet_log_prob {
                 if singlet_posterior > params.singlet_threshold {
-                    assignment.push(format!("singlet\t{}\t{}\t{}\t", best_singlet, best_singleton_log_prob, best_doublet_log_prob));
+                    assignment.push(format!("singlet\t{}\t{}\t{}", best_singlet, best_singleton_log_prob, best_doublet_log_prob));
                     //print!("{}\tsinglet\t{}\t{}\t{}\t", cell_barcode, best_singlet, best_singleton_log_prob, best_doublet_log_prob);
                 } else {
                     //if !all_removed.contains(&cell) {
@@ -177,7 +177,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
                     //    new_removed.push(cell);
                     //    eprintln!("removing {} as unassigned", cell_barcode);
                     //}
-                    assignment.push(format!("unassigned\t{}\t{}\t{}\t",best_singlet, best_singleton_log_prob, best_doublet_log_prob)); 
+                    assignment.push(format!("unassigned\t{}\t{}\t{}",best_singlet, best_singleton_log_prob, best_doublet_log_prob)); 
                     //print!("{}\tunassigned\t{}\t{}\t{}\t", cell_barcode, best_singlet, best_singleton_log_prob, best_doublet_log_prob);
                 }
             } else {
@@ -189,7 +189,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
                         eprintln!("removing {} as doublet", cell_barcode);
                     }
                     
-                    assignment.push(format!("doublet\t{}/{}\t{}\t{}\t", best_doublet1, best_doublet2,best_singleton_log_prob, best_doublet_log_prob));
+                    assignment.push(format!("doublet\t{}/{}\t{}\t{}", best_doublet1, best_doublet2,best_singleton_log_prob, best_doublet_log_prob));
                     //print!("{}\tdoublet\t{}/{}\t{}\t{}\t", cell_barcode, best_doublet1, best_doublet2, best_singleton_log_prob, best_doublet_log_prob);
                 } else {
                     //if !all_removed.contains(&cell) {
@@ -197,7 +197,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
                     //    new_removed.push(cell);
                     //    eprintln!("removing {} as unassigned doublet", cell_barcode);
                    // }
-                    assignment.push(format!("unassigned\t{}/{}\t{}\t{}\t",best_doublet1, best_doublet2, best_singleton_log_prob, best_doublet_log_prob));
+                    assignment.push(format!("unassigned\t{}/{}\t{}\t{}",best_doublet1, best_doublet2, best_singleton_log_prob, best_doublet_log_prob));
                     //print!("{}\tunassigned\t{}/{}\t{}\t{}\t", cell_barcode, best_doublet1, best_doublet2, best_singleton_log_prob, best_doublet_log_prob); 
                 }
             }
