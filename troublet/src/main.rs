@@ -248,8 +248,9 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
         for s in assignment {
             print!("{}\t",s);
         }
-        for s in logprobs {
-            print!("{}\t",s);
+        for (i, s) in logprobs.iter().enumerate() {
+            print!("{}",s);
+            if i < logprobs.len() - 1 { print!("\t"); }
         }println!();
     }
 }
