@@ -30,18 +30,22 @@ locus1_matches = []
 locus2_matches = []
 locus1_matchset = {}
 locus2_matchset = {}
+save_loci1 = {locus2: (chr1,pos1)}
+save_loci2 = {locus2: (chr2,pos2)}
 breakme = False
 while not breakme:
     if pos1 == None:
         try:
             (chr1, pos1, ref1, alt1) = vcf1.readline().strip().split()[0:4] 
             locus1 += 1
+            save_loci1[locus1] = (chr1, pos1)
         except:
             break
     if pos2 == None:
         try:
             (chr2, pos2, ref2, alt2) = vcf2.readline().strip().split()[0:4]
             locus2 += 1
+            save_loci2[locus2] = (chr2, pos2)
         except:
             break
     if chr1 == chr2:
@@ -51,7 +55,7 @@ while not breakme:
                 locus2_matches.append(locus2)
                 locus1_matchset[locus1] = len(locus1_matches) - 1
                 locus2_matchset[locus2] = len(locus2_matches) - 1
-            last_chr = chr1
+                #print("we have a match chr"+chr1+" "+str(pos1)+" respective loci "+str(locus1)+" "+str(locus2))
             pos1 = None
             pos2 = None
         elif pos1 < pos2:
@@ -78,6 +82,8 @@ while not breakme:
             locus1 += 1
         last_chr1 = chr1
         last_chr2 = chr2
+    last_chr1 = chr1
+    last_chr2 = chr2
 
 print("locus1 matchset "+str(len(locus1_matchset)))
 
@@ -168,6 +174,19 @@ with open(args.experiment2+"/alt.mtx") as alts:
 print("clusters for experiment2 "+str(len(cluster2_locus_counts)))
             
 distances = {}
+loci_to_use = set()
+for locus in range(len(cluster1_locus_counts[0])):
+    has_enough = True
+    for cluster in cluster1_locus_counts.keys():
+        locus_counts = cluster1_locus_counts[cluster]
+        if locus_counts[locus][0] + locus_counts[locus][1] < 8:
+            has_enough = False
+    for cluster in cluster2_locus_counts.keys():
+        locus_counts = cluster1_locus_counts[cluster]
+        if locus_counts[locus][0] + locus_counts[locus][1] < 8:
+            has_enough = False
+    if has_enough:
+        loci_to_use.add(locus)
 
 for cluster1 in cluster1_locus_counts.keys():
     locus_counts1 = cluster1_locus_counts[cluster1]
@@ -176,8 +195,9 @@ for cluster1 in cluster1_locus_counts.keys():
         loss = 0
         for locus in range(len(locus_counts1)):
             #print("are we")
-            locusname = locus+1
-            if locusname in total_locus_counts1 and total_locus_counts1[locusname] > 100 and locusname in total_locus_counts2 and total_locus_counts2[locusname] > 100:
+            locusname = locus
+            #if locusname in total_locus_counts1 and total_locus_counts1[locusname] > 20 and locusname in total_locus_counts2 and total_locus_counts2[locusname] > 20:
+            if locus in loci_to_use:
                 counts1 = locus_counts1[locus]
                 counts2 = locus_counts2[locus]
                 if counts1[0] + counts1[1] > 0:
@@ -194,6 +214,6 @@ for cluster1 in cluster1_locus_counts.keys():
 distances_sorted = sorted(distances.items(), key=lambda kv: kv[1])
 print("experiment1_cluster\texperiment2_cluster\tloss")
 for (index, ((cluster1, cluster2), loss)) in enumerate(distances_sorted):
-    if index >= args.shared:
+    if index >= args.shared*2:
         break
     print("\t".join([str(cluster1), str(cluster2), str(loss)]))
