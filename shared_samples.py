@@ -2,6 +2,7 @@
 
 import argparse
 import gzip
+import os
 
 
 parser = argparse.ArgumentParser(description = "determine which clusters are the shared clusters between two souporcell runs with shared samples")
@@ -10,8 +11,13 @@ parser.add_argument("-2","--experiment2", required = True, help = "souporcell di
 parser.add_argument("-n","--shared", required= True, type = int, help = "how many samples should these experiments share?")
 args = parser.parse_args()
 
-vcf1 = gzip.open(args.experiment1+"/souporcell_merged_sorted_vcf.vcf.gz",'rt')
-vcf2 = gzip.open(args.experiment2+"/souporcell_merged_sorted_vcf.vcf.gz",'rt')
+if os.path.isfile(args.experiment1+"/souporcell_merged_sorted_vcf.vcf.gz"):
+    vcf1 = gzip.open(args.experiment1+"/souporcell_merged_sorted_vcf.vcf.gz",'rt')
+    vcf2 = gzip.open(args.experiment2+"/souporcell_merged_sorted_vcf.vcf.gz",'rt')
+elif os.path.isfile(args.experiment1+"/common_variants_covered.vcf"):
+    vcf1 = open(args.experiment1+"/common_variants_covered.vcf")
+    vcf2 = open(args.experiment2+"/common_variants_covered.vcf")
+    
 
 line1 = "#"
 while line1.startswith("#"):
