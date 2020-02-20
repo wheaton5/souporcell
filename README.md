@@ -174,7 +174,7 @@ git clone https://github.com/wheaton5/souporcell.git
 ```
 put souporcell directory on your PATH 
 requires samtools, bcftools, htslib, python3, freebayes, vartrix, minimap2 all on your PATH
-python packages tensorflow, pyvcf, pystan, pyfasta, numpy, scipy
+python packages tensorflow, pyvcf, pystan, pyfaidx, numpy, scipy
 
 ## To run through the pipeline script
 ```
