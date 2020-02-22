@@ -34,7 +34,7 @@ From: continuumio/miniconda3
         /opt/conda/envs/py36/bin/pip install scipy
         /opt/conda/envs/py36/bin/pip install tensorflow
         /opt/conda/envs/py36/bin/pip install pystan==2.17.1.0
-        /opt/conda/envs/py36/bin/pip install pyfasta
+        /opt/conda/envs/py36/bin/pip install pyfaidx
         cd /opt
 	wget https://github.com/samtools/htslib/releases/download/1.9/htslib-1.9.tar.bz2
 	tar xvfj htslib-1.9.tar.bz2

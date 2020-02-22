@@ -44,8 +44,8 @@ import vcf
 print("importing pysam")
 import pysam
 
-print("importing pyfasta")
-import pyfasta
+print("importing pyfaidx")
+import pyfaidx
 
 print("importing subprocess")
 import subprocess
@@ -105,7 +105,7 @@ if not args.ignore == "True":
     assert float(num_cb_cb) / float(num_read_test) > 0.05, "Less than 25% of first 100000 reads have cell barcodes from barcodes file, is this the correct barcode file? turn on --ignore True to ignore"
 
 print("checking fasta")
-fasta = pyfasta.Fasta(args.fasta, key_fn = lambda key: key.split()[0])
+fasta = pyfaidx.Fasta(args.fasta, key_function = lambda key: key.split()[0])
 
 def make_fastqs(args):
     if not os.path.isfile(args.bam + ".bai"):

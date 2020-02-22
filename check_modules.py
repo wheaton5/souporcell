@@ -6,7 +6,7 @@ import math
 import pystan
 import vcf
 import pysam
-import pyfasta
+import pyfaidx
 import subprocess
 import time
 import os
