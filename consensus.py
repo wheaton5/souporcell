@@ -15,6 +15,9 @@ parser.add_argument("-v","--vcf",required=True,help="vcf file from which alt and
 args = parser.parse_args()
 
 
+dirname = '/'.join(fullpath.split('/')[:-1])
+
+
 def myopen(fname): return open(fname, 'rb') if fname.endswith('.gz') else open(fname)
 vcftemplate = vcf.Reader(myopen(args.vcf))
 potential_RNAedits = set()
@@ -359,7 +362,8 @@ import gzip
 vcftemplate = vcf.Reader(myopen(args.vcf))
 vcfreader = vcf.Reader(myopen(args.vcf))
 import math
-with open("tempsouporcell.vcf",'w') as geno:
+tmp_vcf = dirname+"/tempsouporcell.vcf"
+with open(tmp_vcf,'w') as geno:
     vcfwriter = vcf.Writer(geno,vcftemplate)
     samples = [str(cluster) for cluster in range(max_cluster+1)]
     vcfwriter.template.samples = samples
@@ -430,7 +434,7 @@ with open("tempsouporcell.vcf",'w') as geno:
                 calls.append(vcf.model._Call(newrec, str(cluster), CallData(gt, ao, ro, truth, err, go, gn)))
             newrec.samples = calls
             vcfwriter.write_record(newrec)
-with open("tempsouporcell.vcf") as tmp:
+with open(tmp_vcf) as tmp:
     with open(args.vcf_out,'w') as out:
         for line in tmp:
             if line.startswith("#"):
@@ -440,4 +444,4 @@ with open("tempsouporcell.vcf") as tmp:
                     out.write(line)
             else:
                 out.write(line)
-subprocess.check_call(["rm","tempsouporcell.vcf"])
+subprocess.check_call(["rm",tmp_vcf])
