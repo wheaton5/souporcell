@@ -3,7 +3,7 @@ Bootstrap: docker
 From: conda/miniconda3
 
 %environment
-	PATH=/opt/bedtools2/bin:/usr/local/envs/py36/bin:/opt/souporcell:/opt/souporcell/troublet/target/release:/usr/local/condabin:/opt/minimap2-2.7:/root/.cargo/bin:/opt/vartrix-v1.1.3-x86_64-linux/:$PATH
+	PATH=/opt/bedtools2/bin:/usr/local/envs/py36/bin:/opt/souporcell:/opt/souporcell/troublet/target/release:/usr/local/condabin:/opt/minimap2-2.7:/root/.cargo/bin:/opt/vartrix-v1.1.3-x86_64-linux/:/opt:$PATH
 
 %post -c /bin/bash
         apt update
@@ -34,7 +34,6 @@ From: conda/miniconda3
 	rustup default stable
 	yes | apt-get install git
 	cd /opt
-	git clone --recursive git://github.com/ekg/freebayes.git
 	git clone https://github.com/wheaton5/souporcell.git
 	cd souporcell/troublet
 	cargo build --release
@@ -70,10 +69,10 @@ From: conda/miniconda3
         ./configure
         make
         make install
-        cd ..
-        cd freebayes
-        make
-        make install
+	cd /opt
+	wget https://github.com/ekg/freebayes/releases/download/v1.3.1/freebayes-v1.3.1
+	mv freebayes-v1.3.1 freebayes
+	chmod 777 freebayes
         cd ..
         wget https://github.com/10XGenomics/vartrix/releases/download/v1.1.3/vartrix-v1.1.3-x86_64-linux.tar.gz
         tar xzvf vartrix-v1.1.3-x86_64-linux.tar.gz
