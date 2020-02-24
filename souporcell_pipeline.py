@@ -451,7 +451,7 @@ def doublets(args, ref_mtx, alt_mtx, cluster_file):
 def consensus(args, ref_mtx, alt_mtx, doublet_file):
     print("running co inference of ambient RNA and cluster genotypes")
     subprocess.check_call(["consensus.py", "-c", doublet_file, "-a", alt_mtx, "-r", ref_mtx, "-p", args.ploidy,
-        "--soup_out", args.out_dir + "/ambient_rna.txt", "--vcf_out", args.out_dir + "/cluster_genotypes.vcf", "--vcf", final_vcf])
+        "--output_dir",args.out_dir,"--soup_out", args.out_dir + "/ambient_rna.txt", "--vcf_out", args.out_dir + "/cluster_genotypes.vcf", "--vcf", final_vcf])
     subprocess.check_call(['touch', args.out_dir + "/consensus.done"])
 
 

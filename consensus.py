@@ -10,12 +10,13 @@ parser.add_argument("-r","--ref_matrix",required=True,help="ref matrix file")
 parser.add_argument("-p","--ploidy",required=False, help="ploidy, must be 1 or 2, defaults to 2")
 parser.add_argument("--soup_out",required=True, help="soup output")
 parser.add_argument("--vcf_out",required=True, help="vcf output")
+parser.add_argument("--output_dir", required=True, help = "output directory")
 #parser.add_argument("-d","--doublets",required=True, help="doublet calls")
 parser.add_argument("-v","--vcf",required=True,help="vcf file from which alt and ref matrix were created")
 args = parser.parse_args()
 
 
-dirname = '/'.join(fullpath.split('/')[:-1])
+dirname = args.output_dir
 
 
 def myopen(fname): return open(fname, 'rb') if fname.endswith('.gz') else open(fname)
