@@ -158,7 +158,12 @@ git clone https://github.com/wheaton5/souporcell.git
 ```
 put souporcell directory on your PATH 
 requires samtools, bcftools, htslib, python3, freebayes, vartrix, minimap2 all on your PATH
-python packages tensorflow, pyvcf, pystan, pyfaidx, numpy, scipy
+I suggest you use the conda env I have set up by using the following command if you have conda or miniconda
+```
+conda env create -f /path/to/souporcell/souporcell_env.yaml
+conda activate souporcell
+```
+otherwise python packages tensorflow, pyvcf, pystan, pyfaidx, numpy, scipy are required, but as the versions change, I do recommend using the presetup env.
 
 ## To run through the pipeline script
 ```
@@ -168,7 +173,7 @@ souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes
 ## To run things step by step not through the pipeline script
 
 ### 1. Remapping
-We discuss the need for remapping in our manuscript (to be posted on biorxiv soon). We need to keep track of cell barcodes and and UMIs, so we first create a fastq with those items encoded in the readname.
+We discuss the need for remapping in our manuscript. We need to keep track of cell barcodes and and UMIs, so we first create a fastq with those items encoded in the readname.
 Requires python 3.0, modules pysam, argparse (pip install/conda install depending on environment)
 Easiest to first add the souporcell directory to your PATH variable with 
 ```
@@ -212,50 +217,68 @@ vartrix --umi --mapq 30 -b <bam file> -c <barcode tsv> --scoring-method coverage
 note the --threads argument and use an appropriate number of threads for your system.
 
 ### 4. Clustering cells by genotype
-Requires Python3 with modules argparse, numpy, tensorflow
-tensorflow requires Glibc >= 2.14
-```
-pip install tensorflow
-```
-should work if the glibc is up to date.
-And go ahead and put the souporcell direcotry on your path
-```
-./souporcell.py -h
-usage: cellection.py [-h] -a ALT_MATRIX -r REF_MATRIX -k NUM_CLUSTERS
-                     [-l MAX_LOCI] [--min_alt MIN_ALT] [--min_ref MIN_REF]
-                     [-t THREADS]
-
-single cell RNAseq mixed genotype clustering using sparse mixture model
-clustering with tensorflow.
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -a ALT_MATRIX, --alt_matrix ALT_MATRIX
-                        alt matrix output from vartrix in coverage mode
-  -r REF_MATRIX, --ref_matrix REF_MATRIX
-                        ref matrix output from vartrix in coverage mode
-  -k NUM_CLUSTERS, --num_clusters NUM_CLUSTERS
-                        number of clusters to generate
-  -l MAX_LOCI, --max_loci MAX_LOCI
-                        maximum loci to consider per cell
-  --min_alt MIN_ALT     minimum number of cells expressing the alt allele to
-                        use the locus for clustering
-  --min_ref MIN_REF     minimum number of cells expressing the ref allele to
-                        use the locus for clustering
-  -t THREADS, --threads THREADS
-                        number of threads to run on
-```
-So generally something along the lines of
-```
-./souporcell.py -a alt.mtx -r ref.mtx -k <num_clusters> -t 8
-```
-
-### 5. Calling doublets
 Rust required. To install rust:
 ```
 curl https://sh.rustup.rs -sSf | sh
 ```
-And to build troublet:
+and to build souporcell clustering
+```
+cd /path/to/souporcell/souporcell
+cargo build --release
+```
+And add /path/to/souporcell/souporcell/target/release to your path
+usage
+```
+souporcell -h
+souporcell 2.4
+Haynes Heaton <whheaton@gmail.com>
+clustering scRNAseq cells by genotype
+
+USAGE:
+    souporcell [OPTIONS] --alt_matrix <alt_matrix> --barcodes <barcodes> --num_clusters <num_clusters> --ref_matrix <ref_matrix>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+OPTIONS:
+    -a, --alt_matrix <alt_matrix>                                           alt matrix from vartrix
+    -b, --barcodes <barcodes>                                               cell barcodes
+        --initialization_strategy <initialization_strategy>
+            cluster initialization strategy, defaults to kmeans++, valid values are kmeans++, random_uniform,
+            middle_variance, random_cell_assignment
+        --known_cell_assignments <known_cell_assignments>
+            tsv with barcodes and their known assignments
+
+    -g, --known_genotypes <known_genotypes>
+            NOT YET IMPLEMENTED population vcf/bcf of known genotypes if available.
+            
+        --known_genotypes_sample_names <known_genotypes_sample_names>...
+            NOT YET IMPLEMENTED sample names, must be samples from the known_genotypes vcf
+
+        --min_alt <min_alt>
+            minimum number of cells containing the alt allele for the variant to be used for clustering
+
+        --min_alt_umis <min_alt_umis>                                       min alt umis to use locus for clustering
+        --min_ref <min_ref>
+            minimum number of cells containing the ref allele for the variant to be used for clustering
+
+        --min_ref_umis <min_ref_umis>                                       min ref umis to use locus for clustering
+    -k, --num_clusters <num_clusters>                                       number of clusters
+    -r, --ref_matrix <ref_matrix>                                           ref matrix from vartrix
+    -r, --restarts <restarts>                                               number of random seedings
+        --seed <seed>                                                       optional random seed
+    -t, --threads <threads>                                                 number of threads to use
+```
+So generally something along the lines of
+```
+souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 > clusters_tmp.tsv
+```
+(note clusters_tmp.tsv output as the doublet caller outputs the final clusters file)
+
+### 5. Calling doublets
+Rust required.
+Build troublet:
 ```
 cd /path/to/souporcell/troublet
 cargo build --release
@@ -263,8 +286,8 @@ cargo build --release
 And add /path/to/souporcell/troublet/target/release to your path
 The usage is
 ```
-/troublet -h
-troublet 1.0
+troublet -h
+troublet 2.4
 Haynes Heaton <whheaton@gmail.com>
 Intergenotypic doublet detection given cluster assignments and cell allele counts
 
@@ -276,15 +299,17 @@ FLAGS:
     -V, --version    Prints version information
 
 OPTIONS:
-    -a, --alts <alts>                      alt allele counts per cell in sparse matrix format out of vartrix
-    -c, --clusters <clusters>              cluster file output from schism
-    -b, --debug <debug>...                 print debug info for index of cells listed
-    -d, --doublet_prior <doublet_prior>    prior on doublets. Defaults to 0.5
-    -r, --refs <refs>                      ref allele counts per cell in sparse matrix format out of vartrix
+    -a, --alts <alts>                              alt allele counts per cell in sparse matrix format out of vartrix
+    -c, --clusters <clusters>                      cluster file output from schism
+    -b, --debug <debug>...                         print debug info for index of cells listed
+    -d, --doublet_prior <doublet_prior>            prior on doublets. Defaults to 0.5
+        --doublet_threshold <doublet_threshold>    doublet posterior threshold, defaults to 0.90
+    -r, --refs <refs>                              ref allele counts per cell in sparse matrix format out of vartrix
+        --singlet_threshold <singlet_threshold>    singlet posterior threshold, defaults to 0.90
 ```
 So generally
 ```
-troublet -a alt.mtx -r ref.mtx --clusters clusters.tsv > doublet_output.tsv
+troublet -a alt.mtx -r ref.mtx --clusters clusters_tmp.tsv > clusters.tsv
 ```
 
 ### 6. Genotype and ambient RNA coinference
@@ -292,27 +317,30 @@ Python3 required with modules pystan, pyvcf, pickle, math, scipy, gzip (pip inst
 ```
 consensus.py -h
 usage: consensus.py [-h] -c CLUSTERS -a ALT_MATRIX -r REF_MATRIX [-p PLOIDY]
-                    -d DOUBLETS -v VCF
+                    --soup_out SOUP_OUT --vcf_out VCF_OUT --output_dir
+                    OUTPUT_DIR -v VCF
 
 consensus genotype calling and ambient RNA estimation
 
 optional arguments:
   -h, --help            show this help message and exit
   -c CLUSTERS, --clusters CLUSTERS
-                        tsv cluster file
+                        tsv cluster file from the troublet output
   -a ALT_MATRIX, --alt_matrix ALT_MATRIX
                         alt matrix file
   -r REF_MATRIX, --ref_matrix REF_MATRIX
                         ref matrix file
   -p PLOIDY, --ploidy PLOIDY
                         ploidy, must be 1 or 2, defaults to 2
-  -d DOUBLETS, --doublets DOUBLETS
-                        doublet calls
+  --soup_out SOUP_OUT   soup output
+  --vcf_out VCF_OUT     vcf output
+  --output_dir OUTPUT_DIR
+                        output directory
   -v VCF, --vcf VCF     vcf file from which alt and ref matrix were created
 ```
 So generally
 ```
-consensus.py -c clusters.tsv -a alt.mtx -r ref.mtx -d doublet_ouput.tsv --vcf <freebayes vcf>
+consensus.py -c clusters.tsv -a alt.mtx -r ref.mtx --soup_out soup.txt --v <freebayes vcf> --vcf_out cluster_genotypes.vcf --output_dir .
 ```
 
 
