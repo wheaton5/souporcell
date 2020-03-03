@@ -43,7 +43,11 @@ singularity exec souporcell.sif souporcell_pipeline.py -h
 usage: souporcell_pipeline.py [-h] -i BAM -b BARCODES -f FASTA -t THREADS -o
                               OUT_DIR -k CLUSTERS [-p PLOIDY]
                               [--min_alt MIN_ALT] [--min_ref MIN_REF]
-                              [--max_loci MAX_LOCI] [--ignore IGNORE]
+                              [--max_loci MAX_LOCI] [--restarts RESTARTS]
+                              [--common_variants COMMON_VARIANTS]
+                              [--known_genotypes KNOWN_GENOTYPES]
+                              [--known_genotypes_sample_names KNOWN_GENOTYPES_SAMPLE_NAMES [KNOWN_GENOTYPES_SAMPLE_NAMES ...]]
+                              [--skip_remap SKIP_REMAP] [--ignore IGNORE]
 
 single cell RNAseq mixed genotype clustering using sparse mixture model
 clustering with tensorflow.
@@ -67,14 +71,27 @@ optional arguments:
   --min_alt MIN_ALT     min alt to use locus, default = 10.
   --min_ref MIN_REF     min ref to use locus, default = 10.
   --max_loci MAX_LOCI   max loci per cell, affects speed, default = 2048.
+  --restarts RESTARTS   number of restarts in clustering, when there are > 12
+                        clusters we recommend increasing this to avoid local
+                        minima
+                         --common_variants COMMON_VARIANTS
+                        common variant loci or known variant loci vcf, must be
+                        vs same reference fasta
+  --known_genotypes KNOWN_GENOTYPES
+                        known variants per clone in population vcf mode, must
+                        be .vcf right now we dont accept gzip or bcf sorry
+  --known_genotypes_sample_names KNOWN_GENOTYPES_SAMPLE_NAMES [KNOWN_GENOTYPES_SAMPLE_NAMES ...]
+                        which samples in population vcf from known genotypes
+                        option represent the donors in your sample
+  --skip_remap SKIP_REMAP
+                        don't remap with minimap2 (not recommended unless in
+                        conjunction with --common_variants
   --ignore IGNORE       set to True to ignore data error assertions
 ```
 A typical command looks like
 ```
 singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
 ```
-The recommended number of threads is 8.
-
 The above command will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up. This dataset should take several hours to run on 8 threads mostly due to read processing, remapping, and variant calling.
 
 If you have a common snps file you may want to use the --common_variants option with or without the --skip_remap option. This option will skip conversion to fastq, remapping with minimap2, and reattaching barcodes, and the --common_variants will remove the freebayes step. Each which will save a significant amount of time, but --skip-remap isn't recommended without --common_variants.
@@ -106,39 +123,6 @@ singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i A.merged.bam 
 
 This should require about 20gb of ram mostly because of the minimap2 indexing step. I might soon host an index and reference for human to make this less painful.
 
-Your output should look something like 
-```
-checking modules
-imports done
-checking fasta
-creating chunks
-generating fastqs with cell barcodes and umis in readname
-remapping with minimap2
-cleaning up tmp fastqs
-repopulating cell barcode and UMI tags
-cleaning up tmp samfiles
-sorting retagged bam files
-merging sorted bams
-running freebayes
-merging vcfs
-running vartrix
-running souporcell clustering
-running souporcell doublet detection
-running co inference of ambient RNA and cluster genotypes
-/opt/conda/envs/py36/lib/python3.6/site-packages/pystan/misc.py:399: FutureWarning: Conversion of the second argument of issubdtype from `float` to `np.floating` is deprecated. In future, it will be treated as `np.float64 == np.dtype(float).type`.
-  elif np.issubdtype(np.asarray(v).dtype, float):
-Initial log joint probability = -56040.6
-    Iter      log prob        ||dx||      ||grad||       alpha      alpha0  # evals  Notes
-       5      -29176.8    0.00143424     0.0384157           1           1       16
-Optimization terminated normally:
-  Convergence detected: relative gradient magnitude is below tolerance
-```
-
-and your output directory should have 
-```
-alt.mtx          cluster_genotypes.vcf  clusters.tsv  ref.mtx         souporcell_merged_sorted_vcf.vcf.gz      souporcell_minimap_tagged_sorted.bam
-ambient_rna.txt  clusters_tmp.tsv       minimap.err   souporcell.log  souporcell_merged_sorted_vcf.vcf.gz.tbi  souporcell_minimap_tagged_sorted.bam.bai
-```
 The important files are 
 1. clusters.tsv
 2. cluster_genotypes.vcf
