@@ -1,6 +1,6 @@
 [package]
 name = "troublet"
-version = "0.1.0"
+version = "2.4.0"
 authors = ["wheaton5 <whheaton@gmail.com>"]
 
 [dependencies]

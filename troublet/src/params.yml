@@ -1,5 +1,5 @@
 name: troublet
-version: "1.0"
+version: "2.4"
 author: Haynes Heaton <whheaton@gmail.com>
 about: Intergenotypic doublet detection given cluster assignments and cell allele counts
 args:

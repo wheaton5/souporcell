@@ -1,5 +1,5 @@
 name: souporcell
-version: "1.9"
+version: "2.4"
 author: Haynes Heaton <whheaton@gmail.com>
 about: clustering scRNAseq cells by genotype
 args:
