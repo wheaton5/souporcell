@@ -1,5 +1,6 @@
 name: souporcell
 channels:
+  - r
   - conda-forge
   - bioconda
   - defaults
@@ -8,8 +9,8 @@ dependencies:
   - backcall=0.1.0=py_0
   - bcftools=1.9=ha228f0b_4
   - bzip2=1.0.8=h516909a_0
-  - ca-certificates=2019.9.11=hecc5488_0
-  - certifi=2019.9.11=py36_0
+  - ca-certificates=2019.11.28=hecc5488_0
+  - certifi=2019.11.28=py36_0
   - curl=7.65.3=hf8cf82a_0
   - decorator=4.4.1=py_0
   - htslib=1.9=ha228f0b_7
@@ -25,13 +26,14 @@ dependencies:
   - libssh2=1.8.2=h22169c7_2
   - libstdcxx-ng=9.1.0=hdf63c60_0
   - ncurses=6.1=hf484d3e_1002
-  - openssl=1.1.1c=h516909a_0
+  - openssl=1.1.1d=h516909a_0
   - parso=0.5.1=py_0
   - pexpect=4.7.0=py36_0
   - pickleshare=0.7.5=py36_1000
   - pip=19.2=py36_0
   - prompt_toolkit=2.0.10=py_0
   - ptyprocess=0.6.0=py_1001
+  - pyfaidx=0.5.8=py_1
   - pygments=2.4.2=py_0
   - python=3.6.7=h357f687_1005
   - readline=8.0=hf8c457e_0
@@ -64,7 +66,7 @@ dependencies:
     - crc32c==1.7
     - cryptography==2.3.1
     - cycler==0.10.0
-    - cython==0.29.13
+    - cython==0.29.14
     - dcplib==2.1.2
     - docutils==0.15.2
     - gast==0.2.2
@@ -97,7 +99,7 @@ dependencies:
     - pyjwt==1.7.1
     - pyparsing==2.4.2
     - pysam==0.15.2
-    - pystan==2.19.0.0
+    - pystan==2.19.1.1
     - python-dateutil==2.8.0
     - pyvcf==0.6.8
     - pyyaml==5.1.2
