@@ -24,40 +24,30 @@ parser.add_argument("--known_genotypes_sample_names", required = False, nargs = 
     help = "which samples in population vcf from known genotypes option represent the donors in your sample")
 parser.add_argument("--skip_remap", required = False, default = False, type = bool, 
     help = "don't remap with minimap2 (not recommended unless in conjunction with --common_variants")
-parser.add_argument("--ignore", required = False, default = "False", help = "set to True to ignore data error assertions")
+parser.add_argument("--no_umi", required = False, default = False, type = bool, help = "set to True if your bam has no UMI tag, will ignore/override --umi_tag")
+parser.add_argument("--umi_tag", required = False, default = "UB", help = "set if your umi tag is not UB")
+parser.add_argument("--cell_tag", required = False, default = "CB", help = "set if your cell barcode tag is not CB")
+parser.add_argument("--ignore", required = False, default = False, type = bool, help = "set to True to ignore data error assertions")
 args = parser.parse_args()
 
 print("checking modules")
 # importing all reqs to make sure things are installed
-print("importing numpy")
 import numpy as np
-print("importing scipy")
 import scipy
-print("importing gzip")
 import gzip
-print("importing math")
 import math
-print("importing pystan")
 import pystan
-print("importing pyvcf")
 import vcf
-print("importing pysam")
 import pysam
-
-print("importing pyfaidx")
 import pyfaidx
-
-print("importing subprocess")
 import subprocess
-
-print("importing time")
 import time
-
-print("importing os")
 import os
 print("imports done")
 
 print("checking bam for expected tags")
+UMI_TAG = args.umi_tag
+CELL_TAG = args.cell_tag
 #load each file to make sure it is legit
 bc_set = set()
 with open(args.barcodes) as barcodes:
@@ -79,8 +69,6 @@ if args.known_genotypes:
     for sample in args.known_genotypes_sample_names:
         assert sample in args.known_genotypes_sample_names, "not all samples in known genotype sample names option are in the known genotype samples vcf?"
 
-    
-
 #test bam load
 bam = pysam.AlignmentFile(args.bam)
 num_cb = 0
@@ -90,40 +78,67 @@ num_read_test = 100000
 for (index,read) in enumerate(bam):
     if index >= num_read_test:
         break
-    if read.has_tag("CB"):
+    if read.has_tag(CELL_TAG):
         num_cb += 1
-        if read.get_tag("CB") in bc_set:
+        if read.get_tag(CELL_TAG) in bc_set:
             num_cb_cb += 1
-    if read.has_tag("UB"):
+    if read.has_tag(UMI_TAG):
         num_umi += 1
-if not args.ignore == "True":
+if not args.ignore:
     if args.skip_remap and args.common_variants == None and args.known_genotypes == None:
         assert False, "WARNING: skip_remap enables without common_variants or known genotypes. Variant calls will be of poorer quality. Turn on --ignore True to ignore this warning"
         
     assert float(num_cb) / float(num_read_test) > 0.5, "Less than 50% of first 100000 reads have cell barcode tag (CB), turn on --ignore True to ignore"
-    assert float(num_umi) / float(num_read_test) > 0.5, "Less than 50% of first 100000 reads have UMI tag (UB), turn on --ignore True to ignore"
+    if not(args.no_umi):
+        assert float(num_umi) / float(num_read_test) > 0.5, "Less than 50% of first 100000 reads have UMI tag (UB), turn on --ignore True to ignore"
     assert float(num_cb_cb) / float(num_read_test) > 0.05, "Less than 25% of first 100000 reads have cell barcodes from barcodes file, is this the correct barcode file? turn on --ignore True to ignore"
 
 print("checking fasta")
 fasta = pyfaidx.Fasta(args.fasta, key_function = lambda key: key.split()[0])
 
-def make_fastqs(args):
-    if not os.path.isfile(args.bam + ".bai"):
-        print("no bam index found, creating")
-        subprocess.check_call(['samtools', 'index', args.bam])
-    if not os.path.isfile(args.fasta + ".fai"):
-        print("fasta index not found, creating")
-        subprocess.check_call(['samtools', 'faidx', args.fasta])
-    bam = pysam.AlignmentFile(args.bam)
+def get_fasta_regions(fastaname, threads):
+    fasta = pyfaidx.Fasta(args.fasta, key_function = lambda key: key.split()[0])
     total_reference_length = 0
-    for chrom in bam.references:
-        total_reference_length += bam.get_reference_length(chrom)
-    step_length = int(math.ceil(total_reference_length / int(args.threads)))
+    for chrom in sorted(fasta.keys()):
+       total_reference_length += len(fasta[chrom])
+    step_length = int(math.ceil(total_reference_length/threads))
     regions = []
     region = []
     region_so_far = 0
     chrom_so_far = 0
-    print("creating chunks")
+    for chrom in sorted(fasta.keys()):
+        chrom_length = len(fasta[chrom])
+        if chrom_length < 250000:
+            continue
+        while True:
+            if region_so_far + (chrom_length - chrom_so_far) < step_length:
+                region.append((chrom, chrom_so_far, chrom_length))
+                region_so_far += chrom_length - chrom_so_far
+                chrom_so_far = 0
+                break
+            else:
+                region.append((chrom, chrom_so_far, step_length - region_so_far))
+                regions.append(region)
+                region = []
+                chrom_so_far += step_length - region_so_far + 1
+                region_so_far = 0
+    if len(region) > 0:
+        if len(regions) == args.threads:
+            regions[-1] = regions[-1] + region
+        else:
+            regions.append(region)
+    return regions
+
+def get_bam_regions(bamname, threads):
+    bam = pysam.AlignmentFile(bamname)
+    total_reference_length = 0
+    for chrom in bam.references:
+        total_reference_length += bam.get_reference_length(chrom)
+    step_length = int(math.ceil(total_reference_length / threads))
+    regions = []
+    region = []
+    region_so_far = 0
+    chrom_so_far = 0
     for chrom in bam.references:
         chrom_length = bam.get_reference_length(chrom)
         while True:
@@ -140,6 +155,16 @@ def make_fastqs(args):
                 region_so_far = 0
     if len(region) > 0:
         regions.append(region)
+    return regions
+
+def make_fastqs(args):
+    if not os.path.isfile(args.bam + ".bai"):
+        print("no bam index found, creating")
+        subprocess.check_call(['samtools', 'index', args.bam])
+    if not os.path.isfile(args.fasta + ".fai"):
+        print("fasta index not found, creating")
+        subprocess.check_call(['samtools', 'faidx', args.fasta])
+    regions = get_bam_regions(args.bam, int(args.threads))
 
     # for testing, delete this later
     args.threads = int(args.threads)
@@ -168,7 +193,8 @@ def make_fastqs(args):
                 end = region[sub_index][2]
                 fq_name = args.out_dir + "/souporcell_fastq_" + str(index) + "_" + str(sub_index) + ".fq"
                 p = subprocess.Popen(["renamer.py", "--bam", args.bam, "--barcodes", args.barcodes, "--out", fq_name,
-                        "--chrom", chrom, "--start", str(start), "--end", str(end)])
+                        "--chrom", chrom, "--start", str(start), "--end", str(end), "--no_umi", str(args.no_umi), 
+                        "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag])
                 all_fastqs.append(fq_name)
                 procs[index] = p
                 region_fastqs[index].append(fq_name)
@@ -225,7 +251,8 @@ def retag(args, minimap_tmp_files):
             continue
         outfile = args.out_dir + "/souporcell_retag_tmp_" + str(index) + ".bam"
         retag_files.append(outfile)
-        p = subprocess.Popen(["retag.py", "--sam", minimap_tmp_files[index], "--out", outfile])
+        p = subprocess.Popen(["retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi), 
+            "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile])
         procs.append(p)
     for p in procs: # wait for processes to finish
         p.wait()
@@ -257,7 +284,6 @@ def retag(args, minimap_tmp_files):
     print("merging sorted bams")
     final_bam = args.out_dir + "/souporcell_minimap_tagged_sorted.bam"
     subprocess.check_call(["samtools", "merge", final_bam] + filenames)
-
     subprocess.check_call(["samtools", "index", final_bam])
     
     print("cleaning up tmp samfiles")
@@ -271,24 +297,54 @@ def retag(args, minimap_tmp_files):
     subprocess.check_call(["touch", args.out_dir + "/retagging.done"])
 
 def freebayes(args, bam, fasta):
-    total_reference_length = 0
-    for chrom in sorted(fasta.keys()):
-       total_reference_length += len(fasta[chrom])
-    step_length = int(math.ceil(total_reference_length/int(args.threads)))
     if not(args.common_variants == None) or not(args.known_genotypes == None):
         if not(args.common_variants == None):
             print("using common variants")
         if not(args.known_genotypes == None):
             print("using known genotypes")
             args.common_variants = args.known_genotypes
-        with open(args.out_dir+"/depth.bed", 'w') as bed:
-            ps = subprocess.Popen(['samtools', 'depth', bam], stdout = subprocess.PIPE)
+        
+        # parallelize the samtools depth call. It takes too long
+        regions = get_bam_regions(bam, int(args.threads))
+        depth_files = []
+        depth_procs = []
+        print(len(regions))
+        for (index, region) in enumerate(regions):
+            region_args = []
+            for (chrom, start, stop) in region:
+                region_args.append(chrom+":"+str(start)+"-"+str(stop))
+            depthfile = args.out_dir+"/depth_"+str(index)+".bed"
+            depth_files.append(depthfile)
             min_cov = int(args.min_ref)+int(args.min_alt)
-            #magic
-            subprocess.check_call(["awk '{ if ($3 >= " + str(min_cov) + " && $3 < 100000) { print $1 \"\t\" $2 \"\t\" $2+1 \"\t\" $3 } }'"], 
-                shell = True, stdin = ps.stdout, stdout = bed)
-        with open(args.out_dir + "/depth_merged.bed", 'w') as bed:
-            subprocess.check_call(["bedtools", "merge", "-i", args.out_dir + "/depth.bed"], stdout = bed)
+            with open(depthfile, 'w') as bed:
+                with open(depthfile+".sh",'w') as depther:
+                    depther.write("samtools view -hb "+bam+" "+" ".join(region_args)+ " | samtools depth - | "+
+                    "awk '{ if ($3 >= "+str(min_cov)+ " && $3 < 100000) { print $1 \"\t\" $2 \"\t\" $2+1 \"\t\" $3 } }'")
+                subprocess.check_call(["chmod", "777", depthfile+".sh"])
+                #ps0 = subprocess.Popen(['samtools', 'view', bam]+region_args, stdout = subprocess.PIPE)
+                #ps1 = subprocess.Popen(['samtools', 'depth', '-'], stdin = ps0.stdout, stdout = subprocess.PIPE)
+                # awk magic 
+                #ps2 = subprocess.Popen(["awk '{ if ($3 >= " + str(min_cov) + " && $3 < 100000) { print $1 \"\t\" $2 \"\t\" $2+1 \"\t\" $3 } }'"], 
+                #    shell = True, stdin = ps1.stdout, stdout = bed)
+                ps = subprocess.Popen([depthfile+".sh"], shell = True, stdout = bed)
+                depth_procs.append(ps)
+
+        for proc in depth_procs:
+            proc.wait()
+        merged_depthfiles = []
+        for depth_file in depth_files:
+            merged_depthfile = depth_file[:-4]+"_merged.bed"
+            with open(merged_depthfile, 'w') as bed:
+                subprocess.check_call(["bedtools", "merge", "-i", depth_file], stdout = bed)
+            merged_depthfiles.append(merged_depthfile)
+        with open(args.out_dir + "/depth_merged.bed", 'w') as merged_bed:
+            subprocess.check_call(['cat']+merged_depthfiles, stdout = merged_bed)
+        for tmp in depth_files: # clean up tmp bed files
+            subprocess.check_call(['rm', tmp, tmp+".sh"])
+        for tmp in merged_depthfiles:
+            subprocess.check_call(['rm', tmp])
+
+
         with open(args.out_dir + "/common_variants_covered_tmp.vcf", 'w') as vcf:
             subprocess.check_call(["bedtools", "intersect", "-wa", "-a", args.common_variants, "-b", args.out_dir + "/depth_merged.bed"], stdout = vcf)
         with open(args.out_dir + "/common_variants_covered_tmp.vcf") as vcf:
@@ -305,31 +361,7 @@ def freebayes(args, bam, fasta):
             done.write(args.out_dir + "/common_variants_covered.vcf" + "\n")
         return(args.out_dir + "/common_variants_covered.vcf")
 
-    regions = []
-    region = []
-    region_so_far = 0
-    chrom_so_far = 0
-    for chrom in sorted(fasta.keys()):
-        chrom_length = len(fasta[chrom])
-        if chrom_length < 250000:
-            continue
-        while True:
-            if region_so_far + (chrom_length - chrom_so_far) < step_length:
-                region.append((chrom, chrom_so_far, chrom_length))
-                region_so_far += chrom_length - chrom_so_far
-                chrom_so_far = 0
-                break
-            else:
-                region.append((chrom, chrom_so_far, step_length - region_so_far))
-                regions.append(region)
-                region = []
-                chrom_so_far += step_length - region_so_far + 1
-                region_so_far = 0
-    if len(region) > 0:
-        if len(regions) == args.threads:
-            regions[-1] = regions[-1] + region
-        else:
-            regions.append(region)
+    regions = get_fasta_regions(args.fasta, int(args.threads))
 
     region_vcfs = [[] for x in range(args.threads)]
     all_vcfs = []
@@ -414,8 +446,11 @@ def vartrix(args, final_vcf, final_bam):
     alt_mtx = args.out_dir + "/alt.mtx"  
     with open(args.out_dir + "/vartrix.err", 'w') as err:
         with open(args.out_dir + "/vartrix.out", 'w') as out:
-            subprocess.check_call(["vartrix", "--umi", "--mapq", "30", "-b", final_bam, "-c", args.barcodes, "--scoring-method", "coverage", "--threads", str(args.threads),
-                "--ref-matrix", ref_mtx, "--out-matrix", alt_mtx, "-v", final_vcf, "--fasta", args.fasta], stdout = out, stderr = err)
+            cmd = ["vartrix", "--mapq", "30", "-b", final_bam, "-c", args.barcodes, "--scoring-method", "coverage", "--threads", str(args.threads),
+                "--ref-matrix", ref_mtx, "--out-matrix", alt_mtx, "-v", final_vcf, "--fasta", args.fasta]
+            if not(args.no_umi) and args.umi_tag == "UB":
+                cmd.append("--umi")
+            subprocess.check_call(cmd, stdout = out, stderr = err)
     subprocess.check_call(['touch', args.out_dir + "/vartrix.done"])
     subprocess.check_call(['rm', args.out_dir + "/vartrix.out", args.out_dir + "/vartrix.err"])
     return((ref_mtx, alt_mtx))
@@ -426,8 +461,6 @@ def souporcell(args, ref_mtx, alt_mtx, final_vcf):
     with open(cluster_file, 'w') as log:
         with open(args.out_dir+"/clusters.err",'w') as err:
             directory = os.path.dirname(os.path.realpath(__file__))
-            #cmd = ["souporcell.py", "-a", alt_mtx, "-r", ref_mtx, "-b", args.barcodes, "-k", args.clusters,"--restarts",str(args.restarts),
-            #    "-t", str(args.threads), "-l", args.max_loci, "--min_alt", args.min_alt, "--min_ref", args.min_ref,'--out',cluster_file]
             cmd = [directory+"/souporcell/target/release/souporcell", "-k",args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
                 "--restarts", str(args.restarts), "-b", args.barcodes, "--min_ref", args.min_ref, "--min_alt", args.min_alt, 
                 "--threads", str(args.threads)]
@@ -435,7 +468,7 @@ def souporcell(args, ref_mtx, alt_mtx, final_vcf):
             if not(args.known_genotypes == None):
                 cmd.extend(['--known_genotypes', final_vcf])
                 if not(args.known_genotypes_sample_names == None):
-                    cmd.extend(['--known_genotypes_sample_names']+ args.known_genotypes_sample_names)
+                    cmd.extend(['--known_genotypes_sample_names'] + args.known_genotypes_sample_names)
             subprocess.check_call(cmd, stdout = log, stderr = err) 
     subprocess.check_call(['touch', args.out_dir + "/clustering.done"])
     return(cluster_file)
