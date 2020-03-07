@@ -11,7 +11,13 @@ parser.add_argument('-o', '--out', required=True, help="output fastq name")
 parser.add_argument('-c', '--chrom', required = False, help="chrom")
 parser.add_argument('-s', '--start', required = False, help="start")
 parser.add_argument('-e', '--end', required = False, help="end")
+parser.add_argument("--no_umi", required = False, type = bool, default = False, help = "set to True if your bam has no umi tag")
+parser.add_argument("--umi_tag", required = False, default = "UB", help = "set if umi tag is not UB")
+parser.add_argument("--cell_tag", required = False, default = "CB", help = "set if cell barcode tag is not CB")
 args = parser.parse_args()
+
+UMI_TAG = args.umi_tag
+CELL_TAG = args.cell_tag
 
 assert (not(args.chrom) and not(args.start) and not(args.end)) or (args.chrom and args.start and args.end), "if specifying region, must specify chrom, start, and end"
 
@@ -30,30 +36,28 @@ if args.chrom:
 recent_umis = {}
 with open(args.out,'w') as fastq:
     for (index,read) in enumerate(bam):
-        if not read.has_tag("CB"):
+        if not read.has_tag(CELL_TAG):
             continue
-        cell_barcode = read.get_tag("CB")
+        cell_barcode = read.get_tag(CELL_TAG)
         if read.is_secondary or read.is_supplementary:
             continue
-        if not read.has_tag("UB"):
-            continue
-        UMI = read.get_tag("UB")
         pos = read.pos
-        full_umi = cell_barcode + UMI + str(pos)
+        if args.no_umi:
+            full_umi = cell_barcode + str(pos)
+        else:
+            if not read.has_tag(UMI_TAG):
+                continue
+            UMI = read.get_tag(UMI_TAG)
+            full_umi = cell_barcode + UMI + str(pos)
         if full_umi in recent_umis:
             continue
-        #recent_umis[full_umi] = pos
-        #if index % 10000 == 0:
-        #    keys_to_remove = []
-        #    for (key, val) in recent_umis.items():
-        #        if val - pos > 200:
-        #            keys_to_remove.append(key)
-        #    for key in keys_to_remove:
-        #        del recent_umis[key]
     
         readname = read.qname
-        if read.has_tag("CB") and read.get_tag("CB") in cell_barcodes:
-            fastq.write("@"+read.qname+";"+cell_barcode+";"+UMI+"\n")
+        if read.has_tag(CELL_TAG) and read.get_tag(CELL_TAG) in cell_barcodes:
+            if args.no_umi:
+                fastq.write("@"+read.qname+";"+cell_barcode+"\n")
+            else:
+                fastq.write("@"+read.qname+";"+cell_barcode+";"+UMI+"\n")
             fastq.write(read.seq+"\n")
             fastq.write("+\n")
             fastq.write(read.qual+"\n")
