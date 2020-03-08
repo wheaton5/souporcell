@@ -5,6 +5,12 @@ extern crate rand;
 extern crate statrs;
 extern crate itertools;
 extern crate rayon;
+extern crate vcf;
+extern crate flate2;
+
+use flate2::read::MultiGzDecoder;
+use vcf::*;
+
 
 use rayon::prelude::*;
 
@@ -15,10 +21,11 @@ use rand::SeedableRng;
 use clap::App;
 use std::f32;
 
-use std::io::BufReader;
-use std::io::BufRead;
+use std::ffi::OsStr;
 use std::io::Read;
 use std::fs::File;
+use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::path::Path;
 
 use hashbrown::{HashMap,HashSet};
 use itertools::izip;
@@ -27,7 +34,7 @@ fn main() {
     let params = load_params();
     let cell_barcodes = load_barcodes(&params); 
     let (loci_used, total_cells, cell_data, index_to_locus, locus_to_index) = load_cell_data(&params);
-    souporcell_main(loci_used, cell_data, &params, cell_barcodes);
+    souporcell_main(loci_used, cell_data, &params, cell_barcodes, locus_to_index);
 }
 
 struct ThreadData {
@@ -50,7 +57,7 @@ impl ThreadData {
     }
 }
 
-fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, barcodes: Vec<String>) {
+fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, barcodes: Vec<String>, locus_to_index: HashMap<usize, usize>) {
     let seed = [params.seed; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     let mut threads: Vec<ThreadData> = Vec::new();
@@ -60,7 +67,7 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
     }
     threads.par_iter_mut().for_each(|thread_data| {
         for iteration in 0..thread_data.solves_per_thread {
-            let cluster_centers: Vec<Vec<f32>> = init_cluster_centers(loci_used, &cell_data, params, &mut thread_data.rng);
+            let cluster_centers: Vec<Vec<f32>> = init_cluster_centers(loci_used, &cell_data, params, &mut thread_data.rng, &locus_to_index);
             let (log_loss, log_probabilities) = EM(loci_used, cluster_centers, &cell_data ,params, iteration, thread_data.thread_num);
             if log_loss > thread_data.best_total_log_probability {
                 thread_data.best_total_log_probability = log_loss;
@@ -79,9 +86,6 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
         }
     }
     eprintln!("best total log probability = {}", best_log_probability);
-    //println!("here");
-    //fin
-    // SHOW YOURSELF!
     //println!("finished with {}",best_log_probability);
     for (bc, log_probs) in barcodes.iter().zip(best_log_probabilities.iter()) {
         let mut best = 0;
@@ -202,12 +206,8 @@ fn binomial_loss(cell_data: &CellData, cluster_centers: &Vec<Vec<f32>>, log_prio
                 (cell_data.ref_counts[locus_index] as f32) * (1.0 - center[*locus]).ln();
         }
         sum += log_probabilities[cluster];
-        //log_probabilities[cluster] /= 30.0;//(cell_data.loci.len() as f32)/10.0;
-        
     }
-
     
-    //eprintln!("{} loci {:?}",cell_data.loci.len(), log_probabilities);
     log_probabilities
 }
 
@@ -240,13 +240,9 @@ fn normalize_in_log_with_temp(log_probs: &Vec<f32>, temp: f32) -> Vec<f32> {
 }
 
 fn update_final(loci: usize, sums: &Vec<Vec<f32>>, denoms: &Vec<Vec<f32>>, cluster_centers: &mut Vec<Vec<f32>>) {
-    //println!("final update");
     for locus in 0..loci {
-        //println!("locus {}", locus);
         for cluster in 0..sums.len() {
             let update = sums[cluster][locus]/denoms[cluster][locus];
-            //println!("cluster {} previous {} updating with {}/{}={}", cluster, cluster_centers[cluster][locus], 
-            //    sums[cluster][locus], denoms[cluster][locus], update);
             cluster_centers[cluster][locus] = update.min(0.99).max(0.01);//max(0.0001, min(0.9999, update));
         }
     }
@@ -281,9 +277,9 @@ fn update_centers_average(sums: &mut Vec<Vec<f32>>, denoms: &mut Vec<Vec<f32>>, 
     }
 }
 
-fn init_cluster_centers(loci_used: usize, cell_data: &Vec<CellData>, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {
+fn init_cluster_centers(loci_used: usize, cell_data: &Vec<CellData>, params: &Params, rng: &mut StdRng, locus_to_index: &HashMap<usize, usize>) -> Vec<Vec<f32>> {
     if let Some(known_genotypes) = &params.known_genotypes {
-        return init_cluster_centers_known_genotypes(loci_used, params, rng);
+        return init_cluster_centers_known_genotypes(loci_used, params, rng, locus_to_index);
     } else if let Some(assigned_cells) = &params.known_cell_assignments {
         return init_cluster_centers_known_cells(loci_used, &cell_data, params, rng);
     } else {
@@ -296,9 +292,47 @@ fn init_cluster_centers(loci_used: usize, cell_data: &Vec<CellData>, params: &Pa
     }
 }
 
-fn init_cluster_centers_known_genotypes(loci: usize, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {
-    assert!(false, "known genotypes not yet implemented");
-    Vec::new()
+pub fn reader(filename: &str) -> Box<dyn BufRead> {
+    let path = Path::new(filename);
+    let file = match File::open(&path) {
+        Err(why) => panic!("couldn't open file {}", filename),
+        Ok(file) => file,
+    };
+    if path.extension() == Some(OsStr::new("gz")) {
+        Box::new(BufReader::with_capacity(128 * 1024, MultiGzDecoder::new(file)))
+    } else {
+        Box::new(BufReader::with_capacity(128 * 1024, file))
+    }
+}
+
+
+fn init_cluster_centers_known_genotypes(loci: usize, params: &Params, rng: &mut StdRng, locus_to_index: &HashMap<usize, usize>) -> Vec<Vec<f32>> {
+    let mut centers: Vec<Vec<f32>> = Vec::new();
+    for cluster in 0..params.num_clusters {
+        centers.push(Vec::new());
+        for _ in 0..loci {
+            centers[cluster].push(0.5);
+        }
+    }
+    let mut vcf_reader = VCFReader::new(reader(params.known_genotypes.as_ref().unwrap())).unwrap();
+    let mut locus_id: usize = 0;
+    for record in vcf_reader {
+        let record = record.unwrap();
+        if let Some(loci_index) = locus_to_index.get(&locus_id) {
+            if params.known_genotypes_sample_names.len() > 0 {
+                for (sample_index, sample) in params.known_genotypes_sample_names.iter().enumerate() {
+                    let gt = record.call[sample]["GT"][0].to_string();
+                    // complicated way of getting the haplotype to numbers
+                    let hap0 = gt.chars().nth(0).unwrap().to_string().parse::<u32>().unwrap().min(1);
+                    let hap1 = gt.chars().nth(2).unwrap().to_string().parse::<u32>().unwrap().min(1);
+                    centers[sample_index][*loci_index] = (((hap0 + hap1) as f32)/2.0).min(0.99).max(0.01);
+                    println!("checking, gt {}, center updated to {}", gt, centers[sample_index][*loci_index]);
+                }
+            } else { assert!(false, "currently requiring known_genotypes_sample_names if known_genotypes set"); }
+        }
+        locus_id += 1;
+    }
+    centers
 }
 
 fn init_cluster_centers_known_cells(loci: usize, cell_data: &Vec<CellData>, params: &Params, rng: &mut StdRng) -> Vec<Vec<f32>> {

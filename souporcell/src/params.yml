@@ -48,13 +48,13 @@ args:
         short: g
         required: false
         takes_value: true
-        help: NOT YET IMPLEMENTED population vcf/bcf of known genotypes if available.
+        help: population vcf/bcf of known genotypes if available.
     - known_genotypes_sample_names:
         long: known_genotypes_sample_names
         required: false
         takes_value: true
         multiple: true
-        help: NOT YET IMPLEMENTED sample names, must be samples from the known_genotypes vcf
+        help: sample names, must be samples from the known_genotypes vcf
     - known_cell_assignments:
         long: known_cell_assignments
         required: false
