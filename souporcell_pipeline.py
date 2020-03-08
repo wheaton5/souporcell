@@ -464,11 +464,11 @@ def souporcell(args, ref_mtx, alt_mtx, final_vcf):
             cmd = [directory+"/souporcell/target/release/souporcell", "-k",args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
                 "--restarts", str(args.restarts), "-b", args.barcodes, "--min_ref", args.min_ref, "--min_alt", args.min_alt, 
                 "--threads", str(args.threads)]
-            print(" ".join(cmd))
             if not(args.known_genotypes == None):
                 cmd.extend(['--known_genotypes', final_vcf])
                 if not(args.known_genotypes_sample_names == None):
                     cmd.extend(['--known_genotypes_sample_names'] + args.known_genotypes_sample_names)
+            print(" ".join(cmd))
             subprocess.check_call(cmd, stdout = log, stderr = err) 
     subprocess.check_call(['touch', args.out_dir + "/clustering.done"])
     return(cluster_file)
@@ -477,7 +477,8 @@ def doublets(args, ref_mtx, alt_mtx, cluster_file):
     print("running souporcell doublet detection")
     doublet_file = args.out_dir + "/clusters.tsv"
     with open(doublet_file, 'w') as dub:
-        subprocess.check_call(["troublet", "--alts", alt_mtx, "--refs", ref_mtx, "--clusters", cluster_file], stdout = dub)
+        with open(args.out_dir+"/doublets.err",'w') as err:
+            subprocess.check_call(["troublet", "--alts", alt_mtx, "--refs", ref_mtx, "--clusters", cluster_file], stdout = dub, stderr = err)
     subprocess.check_call(['touch', args.out_dir + "/troublet.done"])
     return(doublet_file)
 

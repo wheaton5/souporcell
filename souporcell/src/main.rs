@@ -323,10 +323,11 @@ fn init_cluster_centers_known_genotypes(loci: usize, params: &Params, rng: &mut 
                 for (sample_index, sample) in params.known_genotypes_sample_names.iter().enumerate() {
                     let gt = record.call[sample]["GT"][0].to_string();
                     // complicated way of getting the haplotype to numbers
-                    let hap0 = gt.chars().nth(0).unwrap().to_string().parse::<u32>().unwrap().min(1);
+                    let hap0 = gt.chars().nth(0).unwrap().to_string();
+                    if hap0 == "." { continue; }
+                    let hap0 = hap0.parse::<u32>().unwrap().min(1);
                     let hap1 = gt.chars().nth(2).unwrap().to_string().parse::<u32>().unwrap().min(1);
                     centers[sample_index][*loci_index] = (((hap0 + hap1) as f32)/2.0).min(0.99).max(0.01);
-                    println!("checking, gt {}, center updated to {}", gt, centers[sample_index][*loci_index]);
                 }
             } else { assert!(false, "currently requiring known_genotypes_sample_names if known_genotypes set"); }
         }
