@@ -11,10 +11,16 @@ parser.add_argument('-o', '--out', required=True, help="output fastq name")
 parser.add_argument('-c', '--chrom', required = False, help="chrom")
 parser.add_argument('-s', '--start', required = False, help="start")
 parser.add_argument('-e', '--end', required = False, help="end")
-parser.add_argument("--no_umi", required = False, type = bool, default = False, help = "set to True if your bam has no umi tag")
+parser.add_argument("--no_umi", required = False, default = "False", help = "set to True if your bam has no umi tag")
 parser.add_argument("--umi_tag", required = False, default = "UB", help = "set if umi tag is not UB")
 parser.add_argument("--cell_tag", required = False, default = "CB", help = "set if cell barcode tag is not CB")
 args = parser.parse_args()
+
+if args.no_umi == "True":
+    args.no_umi = True
+else:
+    args.no_umi = False
+
 
 UMI_TAG = args.umi_tag
 CELL_TAG = args.cell_tag

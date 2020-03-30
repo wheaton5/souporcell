@@ -24,11 +24,16 @@ parser.add_argument("--known_genotypes_sample_names", required = False, nargs = 
     help = "which samples in population vcf from known genotypes option represent the donors in your sample")
 parser.add_argument("--skip_remap", required = False, default = False, type = bool, 
     help = "don't remap with minimap2 (not recommended unless in conjunction with --common_variants")
-parser.add_argument("--no_umi", required = False, default = False, type = bool, help = "set to True if your bam has no UMI tag, will ignore/override --umi_tag")
+parser.add_argument("--no_umi", required = False, default = "False", help = "set to True if your bam has no UMI tag, will ignore/override --umi_tag")
 parser.add_argument("--umi_tag", required = False, default = "UB", help = "set if your umi tag is not UB")
 parser.add_argument("--cell_tag", required = False, default = "CB", help = "set if your cell barcode tag is not CB")
 parser.add_argument("--ignore", required = False, default = False, type = bool, help = "set to True to ignore data error assertions")
 args = parser.parse_args()
+
+if args.no_umi == "True":
+    args.no_umi = True
+else:
+    args.no_umi = False
 
 print("checking modules")
 # importing all reqs to make sure things are installed
@@ -117,10 +122,10 @@ def get_fasta_regions(fastaname, threads):
                 chrom_so_far = 0
                 break
             else:
-                region.append((chrom, chrom_so_far, step_length - region_so_far))
+                region.append((chrom, chrom_so_far, chrom_so_far + step_length - region_so_far))
                 regions.append(region)
                 region = []
-                chrom_so_far += step_length - region_so_far + 1
+                chrom_so_far += step_length - region_so_far
                 region_so_far = 0
     if len(region) > 0:
         if len(regions) == args.threads:
@@ -128,6 +133,7 @@ def get_fasta_regions(fastaname, threads):
         else:
             regions.append(region)
     return regions
+
 
 def get_bam_regions(bamname, threads):
     bam = pysam.AlignmentFile(bamname)
@@ -141,20 +147,27 @@ def get_bam_regions(bamname, threads):
     chrom_so_far = 0
     for chrom in bam.references:
         chrom_length = bam.get_reference_length(chrom)
+        #print(chrom+" size "+str(chrom_length)+" and step size "+str(step_length))
         while True:
-            if region_so_far + (chrom_length - chrom_so_far) <= step_length:
+            #print("\tregion so far "+str(region_so_far)+" chrom so far "+str(chrom_so_far)) 
+            #print("\t"+str(chrom_length - chrom_so_far)+" <= "+str(step_length - region_so_far))
+            #print("\t"+str((chrom_length - chrom_so_far) <= step_length - region_so_far))
+            if (chrom_length - chrom_so_far) <= step_length - region_so_far:
                 region.append((chrom, chrom_so_far, chrom_length))
+                #print("\t\tending chrom\t"+chrom+":"+str(chrom_so_far)+"-"+str(chrom_length))
                 region_so_far += chrom_length - chrom_so_far
                 chrom_so_far = 0
                 break
             else:
-                region.append((chrom, chrom_so_far, step_length - region_so_far))
+                region.append((chrom, chrom_so_far, chrom_so_far + step_length - region_so_far))
+                #print("\t\tending region\t"+chrom+":"+str(chrom_so_far)+"-"+str(chrom_so_far + step_length - region_so_far))
                 regions.append(region)
                 region = []
-                chrom_so_far += step_length - region_so_far + 1
+                chrom_so_far += step_length - region_so_far
                 region_so_far = 0
     if len(region) > 0:
         regions.append(region)
+    
     return regions
 
 def make_fastqs(args):
@@ -165,7 +178,6 @@ def make_fastqs(args):
         print("fasta index not found, creating")
         subprocess.check_call(['samtools', 'faidx', args.fasta])
     regions = get_bam_regions(args.bam, int(args.threads))
-
     # for testing, delete this later
     args.threads = int(args.threads)
     region_fastqs = [[] for x in range(args.threads)]
@@ -184,7 +196,7 @@ def make_fastqs(args):
                     any_running = True
                 else:
                     assert not(procs[index].returncode), "renamer subprocess terminated abnormally with code " + str(procs[index].returncode)
-            if len(region_fastqs[index]) == len(region) - 1:
+            if len(region_fastqs[index]) == len(region):
                 block = True
             if not block:
                 sub_index = len(region_fastqs[index])
@@ -246,17 +258,33 @@ def retag(args, minimap_tmp_files):
     # run retagger
     procs = []
     retag_files = []
+    retag_error_files = []
+    retag_out_files = []
     for index in range(args.threads):
         if index > len(minimap_tmp_files) -1:
             continue
+        
         outfile = args.out_dir + "/souporcell_retag_tmp_" + str(index) + ".bam"
         retag_files.append(outfile)
+        errfile = open(outfile+".err",'w')
+        outfileout = open(outfile+".out",'w')
+        retag_error_files.append(errfile)
+        retag_out_files.append(outfileout)
+        print(args.no_umi)
+        print(str(args.no_umi))
+        cmd = ["retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi),
+            "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile]
+        print(" ".join(cmd))
         p = subprocess.Popen(["retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi), 
-            "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile])
+            "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile], stdout = outfileout, stderr = errfile)
         procs.append(p)
-    for p in procs: # wait for processes to finish
+    for (i, p) in enumerate(procs): # wait for processes to finish
         p.wait()
+        retag_error_files[i].close()
+        retag_out_files[i].close()
         assert not(p.returncode), "retag subprocess ended abnormally with code " + str(p.returncode)
+    for outfile in retag_files:
+        subprocess.check_call(['rm',outfile+".err", outfile+".out"])
 
 
     print("sorting retagged bam files")
