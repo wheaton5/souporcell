@@ -489,7 +489,7 @@ def souporcell(args, ref_mtx, alt_mtx, final_vcf):
     with open(cluster_file, 'w') as log:
         with open(args.out_dir+"/clusters.err",'w') as err:
             directory = os.path.dirname(os.path.realpath(__file__))
-            cmd = [directory+"/souporcell/target/release/souporcell", "-k",args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
+            cmd = ["souporcell", "-k",args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
                 "--restarts", str(args.restarts), "-b", args.barcodes, "--min_ref", args.min_ref, "--min_alt", args.min_alt, 
                 "--threads", str(args.threads)]
             if not(args.known_genotypes == None):
