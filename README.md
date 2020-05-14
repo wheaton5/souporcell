@@ -163,6 +163,12 @@ I suggest you use the conda env I have set up by using the following command if 
 conda env create -f /path/to/souporcell/souporcell_env.yaml
 conda activate souporcell
 ```
+You will also need Rust and to compile the two rust binaries
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cd /path/to/souporcell/souporcell && cargo build --release
+cd /path/to/souporcell/troublet && cargo build --release
+```
 otherwise python packages tensorflow, pyvcf, pystan, pyfaidx, numpy, scipy are required, but as the versions change, I do recommend using the presetup env.
 
 ## To run through the pipeline script
