@@ -28,7 +28,10 @@ parser.add_argument("--no_umi", required = False, default = "False", help = "set
 parser.add_argument("--umi_tag", required = False, default = "UB", help = "set if your umi tag is not UB")
 parser.add_argument("--cell_tag", required = False, default = "CB", help = "set if your cell barcode tag is not CB")
 parser.add_argument("--ignore", required = False, default = False, type = bool, help = "set to True to ignore data error assertions")
+parser.add_argument("--aligner", required = False, default = "minimap2", help = "optionally change to HISAT2 if you have it installed, not included in singularity build")
 args = parser.parse_args()
+
+
 
 if args.no_umi == "True":
     args.no_umi = True
@@ -61,6 +64,7 @@ with open(args.barcodes) as barcodes:
         bc_set.add(bc)
 
 assert len(bc_set) > 50, "Fewer than 50 barcodes in barcodes file? We expect 1 barcode per line."
+assert args.aligner == "minimap2" or args.aligner == "HISAT2", "--aligner expects minimap2 or HISAT2"
 
 assert not(not(args.known_genotypes == None) and not(args.common_variants == None)), "cannot set both know_genotypes and common_variants"
 if args.known_genotypes_sample_names:
@@ -231,17 +235,19 @@ def remap(args, region_fastqs, all_fastqs):
         with open(output, 'w') as samfile:
             with open(args.out_dir + "/minimap.err",'w') as minierr:
                 minierr.write("mapping\n")
-                #subprocess.check_call(["hisat2", "-p", str(args.threads), "-q", args.out_dir + "/tmp.fq", "-x", 
-                #args.fasta[:-3],
-                #"-S", output], stderr =minierr)
-                cmd = ["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21",
-                    "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
-                    "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq"]
-                minierr.write(" ".join(cmd)+"\n")
-                subprocess.check_call(["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21", 
-                    "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
-                    "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq"], 
-                    stdout = samfile, stderr = minierr)
+                if args.aligner == "HISAT2":
+                    subprocess.check_call(["hisat2", "-p", str(args.threads), "-q", args.out_dir + "/tmp.fq", "-x", 
+                    args.fasta[:-3],
+                    "-S", output], stderr =minierr)
+                else:
+                    cmd = ["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21",
+                        "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
+                        "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq"]
+                    minierr.write(" ".join(cmd)+"\n")
+                    subprocess.check_call(["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21", 
+                        "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
+                        "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq"], 
+                        stdout = samfile, stderr = minierr)
         subprocess.check_call(['rm', args.out_dir + "/tmp.fq"])
 
     with open(args.out_dir + '/remapping.done', 'w') as done:
