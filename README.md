@@ -20,7 +20,7 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 Download singularity image (1.3gb) (singularity is similar to docker but safe for clusters)
 Google drive makes it annoyingly difficult to download via the terminal. The following command will download and name souporcell.sif (singularity image file) to your current directory.
 ```
-wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1MwJ2wDUuAIAZW3aRqI6zzCa7S9PN0-YI' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1MwJ2wDUuAIAZW3aRqI6zzCa7S9PN0-YI" -O souporcell.sif && rm -rf /tmp/cookies.txt
+wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=124sRtZoDlKt-jJYS6BbWGC1-CY01aAGT' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=124sRtZoDlKt-jJYS6BbWGC1-CY01aAGT" -O souporcell.sif && rm -rf /tmp/cookies.txt
 ```
 ```
 ls -lah souporcell.sif
@@ -162,6 +162,12 @@ I suggest you use the conda env I have set up by using the following command if 
 ```
 conda env create -f /path/to/souporcell/souporcell_env.yaml
 conda activate souporcell
+```
+You will also need Rust and to compile the two rust binaries
+```
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+cd /path/to/souporcell/souporcell && cargo build --release
+cd /path/to/souporcell/troublet && cargo build --release
 ```
 otherwise python packages tensorflow, pyvcf, pystan, pyfaidx, numpy, scipy are required, but as the versions change, I do recommend using the presetup env.
 

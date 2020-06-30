@@ -53,6 +53,7 @@ import time
 import os
 print("imports done")
 
+
 print("checking bam for expected tags")
 UMI_TAG = args.umi_tag
 CELL_TAG = args.cell_tag
@@ -281,7 +282,8 @@ def retag(args, minimap_tmp_files):
         cmd = ["retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi),
             "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile]
         print(" ".join(cmd))
-        p = subprocess.Popen(["retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi), 
+        directory = os.path.dirname(os.path.realpath(__file__))
+        p = subprocess.Popen([directory+"/retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi), 
             "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile], stdout = outfileout, stderr = errfile)
         procs.append(p)
     for (i, p) in enumerate(procs): # wait for processes to finish
@@ -512,13 +514,15 @@ def doublets(args, ref_mtx, alt_mtx, cluster_file):
     doublet_file = args.out_dir + "/clusters.tsv"
     with open(doublet_file, 'w') as dub:
         with open(args.out_dir+"/doublets.err",'w') as err:
-            subprocess.check_call(["troublet", "--alts", alt_mtx, "--refs", ref_mtx, "--clusters", cluster_file], stdout = dub, stderr = err)
+            directory = os.path.dirname(os.path.realpath(__file__))
+            subprocess.check_call([directory+"/troublet/target/release/troublet", "--alts", alt_mtx, "--refs", ref_mtx, "--clusters", cluster_file], stdout = dub, stderr = err)
     subprocess.check_call(['touch', args.out_dir + "/troublet.done"])
     return(doublet_file)
 
 def consensus(args, ref_mtx, alt_mtx, doublet_file):
     print("running co inference of ambient RNA and cluster genotypes")
-    subprocess.check_call(["consensus.py", "-c", doublet_file, "-a", alt_mtx, "-r", ref_mtx, "-p", args.ploidy,
+    directory = os.path.dirname(os.path.realpath(__file__))
+    subprocess.check_call([directory+"/consensus.py", "-c", doublet_file, "-a", alt_mtx, "-r", ref_mtx, "-p", args.ploidy,
         "--output_dir",args.out_dir,"--soup_out", args.out_dir + "/ambient_rna.txt", "--vcf_out", args.out_dir + "/cluster_genotypes.vcf", "--vcf", final_vcf])
     subprocess.check_call(['touch', args.out_dir + "/consensus.done"])
 
