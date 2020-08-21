@@ -2,7 +2,7 @@
 
 import pysam
 import argparse
-
+import gzip
 parser = argparse.ArgumentParser(description='make fastq from possorted_genome_bam.bam from cellranger')
 
 parser.add_argument('-f', '--bam', required=True, help="cellranger bam")
@@ -30,8 +30,9 @@ assert (not(args.chrom) and not(args.start) and not(args.end)) or (args.chrom an
 fn = args.bam#"possorted_genome_bam.bam"#files[0]
 bam = pysam.AlignmentFile(fn, "rb")
 
+open_function = lambda f: gzip.open(f,"rt") if f[-3:] == ".gz" else open(f)
 cell_barcodes = set([])
-with open(args.barcodes) as barcodes:
+with open_function(args.barcodes) as barcodes:
     for line in barcodes:
         tokens=line.strip().split()
         cell_barcodes.add(tokens[0])

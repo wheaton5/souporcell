@@ -54,14 +54,17 @@ import os
 print("imports done")
 
 
+open_function = lambda f: gzip.open(f,"rt") if f[-3:] == ".gz" else open(f)
+
 print("checking bam for expected tags")
 UMI_TAG = args.umi_tag
 CELL_TAG = args.cell_tag
 #load each file to make sure it is legit
 bc_set = set()
-with open(args.barcodes) as barcodes:
+with open_function(args.barcodes) as barcodes:
     for (index, line) in enumerate(barcodes):
         bc = line.strip()
+        print(bc)
         bc_set.add(bc)
 
 assert len(bc_set) > 50, "Fewer than 50 barcodes in barcodes file? We expect 1 barcode per line."
@@ -489,9 +492,14 @@ def vartrix(args, final_vcf, final_bam):
     print("running vartrix")
     ref_mtx = args.out_dir + "/ref.mtx"
     alt_mtx = args.out_dir + "/alt.mtx"  
+    barcodes = args.barcodes
+    if barcodes[-3:] == ".gz":
+        with open(args.out_dir + "/barcodes.tsv",'w') as bcsout:
+            subprocess.check_call(['gunzip', '-c', barcodes],stdout = bcsout)
+        barcodes = args.out_dir + "/barcodes.tsv"
     with open(args.out_dir + "/vartrix.err", 'w') as err:
         with open(args.out_dir + "/vartrix.out", 'w') as out:
-            cmd = ["vartrix", "--mapq", "30", "-b", final_bam, "-c", args.barcodes, "--scoring-method", "coverage", "--threads", str(args.threads),
+            cmd = ["vartrix", "--mapq", "30", "-b", final_bam, "-c", barcodes, "--scoring-method", "coverage", "--threads", str(args.threads),
                 "--ref-matrix", ref_mtx, "--out-matrix", alt_mtx, "-v", final_vcf, "--fasta", args.fasta]
             if not(args.no_umi) and args.umi_tag == "UB":
                 cmd.append("--umi")

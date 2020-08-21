@@ -8,6 +8,7 @@ extern crate rayon;
 extern crate vcf;
 extern crate flate2;
 
+use flate2::read::GzDecoder;
 use flate2::read::MultiGzDecoder;
 use vcf::*;
 
@@ -497,9 +498,12 @@ impl CellData {
     }
 }
 
+
+
 fn load_barcodes(params: &Params) -> Vec<String> {
-    let reader = File::open(params.barcodes.to_string()).expect("cannot open barcode file");
-    let reader = BufReader::new(reader);
+    //let reader = File::open(params.barcodes.to_string()).expect("cannot open barcode file");
+    //let reader = BufReader::new(reader);
+    let reader = reader(&params.barcodes);
     let mut cell_barcodes: Vec<String> = Vec::new();
     for line in reader.lines() {
         let line = line.expect("Unable to read line");
