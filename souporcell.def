@@ -75,3 +75,4 @@ From: conda/miniconda3
 	chmod 777 freebayes
         wget https://github.com/10XGenomics/vartrix/releases/download/v1.1.16/vartrix_linux
         mv vartrix_linux vartrix
+        chmod 777 vartrix
