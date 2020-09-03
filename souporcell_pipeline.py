@@ -64,7 +64,6 @@ bc_set = set()
 with open_function(args.barcodes) as barcodes:
     for (index, line) in enumerate(barcodes):
         bc = line.strip()
-        print(bc)
         bc_set.add(bc)
 
 assert len(bc_set) > 50, "Fewer than 50 barcodes in barcodes file? We expect 1 barcode per line."
@@ -121,6 +120,7 @@ def get_fasta_regions(fastaname, threads):
     chrom_so_far = 0
     for chrom in sorted(fasta.keys()):
         chrom_length = len(fasta[chrom])
+        chrom_so_far = 0
         if chrom_length < 250000:
             continue
         while True:
@@ -408,6 +408,7 @@ def freebayes(args, bam, fasta):
         return(args.out_dir + "/common_variants_covered.vcf")
 
     regions = get_fasta_regions(args.fasta, int(args.threads))
+    print(regions)
 
     region_vcfs = [[] for x in range(args.threads)]
     all_vcfs = []
@@ -428,7 +429,7 @@ def freebayes(args, bam, fasta):
                     any_running = True
                 else:
                     assert not(procs[index].returncode), "freebayes subprocess terminated abnormally with code " + str(procs[index].returncode)
-            if len(region_vcfs[index]) == len(region) - 1:
+            if len(region_vcfs[index]) == len(region):
                 block = True
             if not block:
                 sub_index = len(region_vcfs[index])
@@ -460,8 +461,11 @@ def freebayes(args, bam, fasta):
     for errhandle in errhandles:
         errhandle.close()
     print("merging vcfs")
+    subprocess.check_call(["ls "+args.out_dir+'/*.vcf | xargs -n1 -P'+str(args.threads)+' bgzip'],shell=True)
+    all_vcfs = [vcf+".gz" for vcf in all_vcfs]
+    subprocess.check_call(["ls "+args.out_dir+"/*.vcf.gz | xargs -n1 -P"+str(args.threads) +" bcftools index"],shell=True)
     with open(args.out_dir + "/souporcell_merged_vcf.vcf", 'w') as vcfout:
-        subprocess.check_call(["bcftools", "concat"] + all_vcfs, stdout = vcfout)
+        subprocess.check_call(["bcftools", "concat", '-a'] + all_vcfs, stdout = vcfout)
     with open(args.out_dir + "/bcftools.err", 'w') as vcferr:
         with open(args.out_dir + "/souporcell_merged_sorted_vcf.vcf", 'w') as vcfout:
             subprocess.check_call(['bcftools', 'sort', args.out_dir + "/souporcell_merged_vcf.vcf"], stdout = vcfout, stderr = vcferr)
@@ -476,7 +480,8 @@ def freebayes(args, bam, fasta):
     final_vcf = args.out_dir + "/souporcell_merged_sorted_vcf.vcf.gz"
     subprocess.check_call(['tabix', '-p', 'vcf', final_vcf])
     for vcf in all_vcfs:
-        subprocess.check_call(['rm', vcf + ".err"])
+        subprocess.check_call(['rm', vcf[:-3] + ".err"])       
+        subprocess.check_call(['rm', vcf +".csi"])
     subprocess.check_call(['rm'] + all_vcfs)
     if len(bed_files) > 0:
         for bed in bed_files:
