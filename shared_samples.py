@@ -188,7 +188,7 @@ for locus in range(len(cluster1_locus_counts[0])):
         if locus_counts[locus][0] + locus_counts[locus][1] < 8:
             has_enough = False
     for cluster in cluster2_locus_counts.keys():
-        locus_counts = cluster1_locus_counts[cluster]
+        locus_counts = cluster2_locus_counts[cluster]
         if locus_counts[locus][0] + locus_counts[locus][1] < 8:
             has_enough = False
     if has_enough:
