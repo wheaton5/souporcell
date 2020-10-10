@@ -554,7 +554,7 @@ def consensus(args, ref_mtx, alt_mtx, doublet_file):
 if os.path.isdir(args.out_dir):
     print("restarting pipeline in existing directory " + args.out_dir)
 else:
-    subprocess.check_call(["mkdir", args.out_dir])
+    subprocess.check_call(["mkdir", "-p", args.out_dir])
 if not args.skip_remap:
     if not os.path.exists(args.out_dir + "/fastqs.done"):
         (region_fastqs, all_fastqs) = make_fastqs(args)
