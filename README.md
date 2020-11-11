@@ -346,7 +346,7 @@ optional arguments:
 ```
 So generally
 ```
-consensus.py -c clusters.tsv -a alt.mtx -r ref.mtx --soup_out soup.txt --v <freebayes vcf> --vcf_out cluster_genotypes.vcf --output_dir .
+consensus.py -c clusters.tsv -a alt.mtx -r ref.mtx --soup_out soup.txt -v <freebayes vcf> --vcf_out cluster_genotypes.vcf --output_dir .
 ```
 
 
