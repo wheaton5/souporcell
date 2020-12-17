@@ -212,7 +212,8 @@ def make_fastqs(args):
                 start = region[sub_index][1]
                 end = region[sub_index][2]
                 fq_name = args.out_dir + "/souporcell_fastq_" + str(index) + "_" + str(sub_index) + ".fq"
-                p = subprocess.Popen(["renamer.py", "--bam", args.bam, "--barcodes", args.barcodes, "--out", fq_name,
+                directory = os.path.dirname(os.path.realpath(__file__))
+                p = subprocess.Popen([directory+"/renamer.py", "--bam", args.bam, "--barcodes", args.barcodes, "--out", fq_name,
                         "--chrom", chrom, "--start", str(start), "--end", str(end), "--no_umi", str(args.no_umi), 
                         "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag])
                 all_fastqs.append(fq_name)
