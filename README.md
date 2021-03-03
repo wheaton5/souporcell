@@ -20,12 +20,8 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 Download singularity image (1.3gb) (singularity is similar to docker but safe for clusters)
 Google drive makes it annoyingly difficult to download via the terminal. The following command will download and name souporcell.sif (singularity image file) to your current directory.
 ```
-wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1tj2j8QZuGz8sylHgWbnejWyUn8n6m0Y8' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1tj2j8QZuGz8sylHgWbnejWyUn8n6m0Y8" -O souporcell.sif && rm -rf /tmp/cookies.txt
+singularity pull shub://wheaton5/souporcell
 ```
-```
-ls -lah souporcell.sif
-```
-This file is ~1.4Gb, so please make sure you have enough space for it. You can also download manually [here](https://drive.google.com/open?id=1cbMuUJPwXd8BsUMY0XmtyWhu4Jj1ckOb)
 
 If you are running on a scientific cluster, they will likely have singularity, contact your sysadmin for more details. 
 If you are running on your own linux box you may need to install [singularity](https://www.sylabs.io/guides/3.2/user-guide/quick_start.html#quick-installation-steps)
@@ -39,7 +35,7 @@ You should now be able to run souporcell_pipeline.py through the singularity con
 
 The options for using souporcell are:
 ```
-singularity exec souporcell.sif souporcell_pipeline.py -h
+singularity exec souporcell_latest.sif souporcell_pipeline.py -h
 usage: souporcell_pipeline.py [-h] -i BAM -b BARCODES -f FASTA -t THREADS -o
                               OUT_DIR -k CLUSTERS [-p PLOIDY]
                               [--min_alt MIN_ALT] [--min_ref MIN_REF]
@@ -90,7 +86,7 @@ optional arguments:
 ```
 A typical command looks like
 ```
-singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
+singularity exec /path/to/souporcell_latest.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
 ```
 The above command will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up. This dataset should take several hours to run on 8 threads mostly due to read processing, remapping, and variant calling.
 
@@ -118,7 +114,7 @@ tar -xzvf refdata-cellranger-GRCh38-3.0.0.tar.gz
 ```
 Now you should be ready to test it out
 ```
-singularity exec /path/to/souporcell.sif souporcell_pipeline.py -i A.merged.bam -b GSM2560245_barcodes.tsv -f refdata-cellranger-GRCh38-3.0.0/fasta/genome.fa -t 8 -o demux_data_test -k 4
+singularity exec /path/to/souporcell_latest.sif souporcell_pipeline.py -i A.merged.bam -b GSM2560245_barcodes.tsv -f refdata-cellranger-GRCh38-3.0.0/fasta/genome.fa -t 8 -o demux_data_test -k 4
 ```
 
 This should require about 20gb of ram mostly because of the minimap2 indexing step. I might soon host an index and reference for human to make this less painful.
