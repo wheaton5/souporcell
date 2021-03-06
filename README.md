@@ -18,7 +18,6 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 ## Easy Installation (Linux) (recommended) 
 
 Download singularity image (1.3gb) (singularity is similar to docker but safe for clusters)
-Google drive makes it annoyingly difficult to download via the terminal. The following command will download and name souporcell.sif (singularity image file) to your current directory.
 ```
 singularity pull shub://wheaton5/souporcell
 ```
