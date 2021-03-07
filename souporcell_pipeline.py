@@ -3,7 +3,7 @@
 import argparse
 
 parser = argparse.ArgumentParser(
-    description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering with tensorflow.")
+    description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering.")
 parser.add_argument("-i", "--bam", required = True, help = "cellranger bam")
 parser.add_argument("-b", "--barcodes", required = True, help = "barcodes.tsv from cellranger")
 parser.add_argument("-f", "--fasta", required = True, help = "reference fasta file")
