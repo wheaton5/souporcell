@@ -322,6 +322,7 @@ fn init_cluster_centers_known_genotypes(loci: usize, params: &Params, rng: &mut 
         if let Some(loci_index) = locus_to_index.get(&locus_id) {
             if params.known_genotypes_sample_names.len() > 0 {
                 for (sample_index, sample) in params.known_genotypes_sample_names.iter().enumerate() {
+                    if (!record.call[sample].contains_key("GT")) || record.call[sample]["GT"].len() <= 0 { continue; }
                     let gt = record.call[sample]["GT"][0].to_string();
                     // complicated way of getting the haplotype to numbers
                     let hap0 = gt.chars().nth(0).unwrap().to_string();
