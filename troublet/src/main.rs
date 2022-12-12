@@ -181,7 +181,6 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
                     //print!("{}\tunassigned\t{}\t{}\t{}\t", cell_barcode, best_singlet, best_singleton_log_prob, best_doublet_log_prob);
                 }
             } else {
-                
                 if doublet_posterior >= params.doublet_threshold {
                     if !all_removed.contains(&cell) {
                         all_removed.insert(cell);
