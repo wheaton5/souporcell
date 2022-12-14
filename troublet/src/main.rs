@@ -34,7 +34,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
         soup_allele_fractions: Vec<f64>, cell_allele_counts: Vec<Vec<(usize, u64, u64)>>, 
         cluster_losses: Vec<(String, Vec<f64>)>, total_locus_counts: HashMap<usize, usize>) { // good god i should use more structs
     let num_clusters = cluster_losses[0].1.len();
-    print!("barcode\tstatus\tassignment\tlog_prob_singleton\tlog_prob_doublet\t");
+    print!("barcode\tstatus\tassignment\tsinglet_posterior\tdoublet_posterior\tlog_prob_singleton\tlog_prob_doublet\t");
     for cluster in 0..num_clusters {
         print!("cluster{}",cluster);
         if cluster == num_clusters - 1 {println!();}
@@ -169,7 +169,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
             let mut assignment: Vec<String> = Vec::new(); assignment.push(cell_barcode.to_string());
             if best_singleton_log_prob > best_doublet_log_prob {
                 if singlet_posterior > params.singlet_threshold {
-                    assignment.push(format!("singlet\t{}\t{}\t{}", best_singlet, best_singleton_log_prob, best_doublet_log_prob));
+                    assignment.push(format!("singlet\t{}\t{}\t{}\t{}\t{}", best_singlet, singlet_posterior, doublet_posterior, best_singleton_log_prob, best_doublet_log_prob));
                     //print!("{}\tsinglet\t{}\t{}\t{}\t", cell_barcode, best_singlet, best_singleton_log_prob, best_doublet_log_prob);
                 } else {
                     //if !all_removed.contains(&cell) {
@@ -177,11 +177,10 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
                     //    new_removed.push(cell);
                     //    eprintln!("removing {} as unassigned", cell_barcode);
                     //}
-                    assignment.push(format!("unassigned\t{}\t{}\t{}",best_singlet, best_singleton_log_prob, best_doublet_log_prob)); 
+                    assignment.push(format!("unassigned\t{}\t{}\t{}\t{}\t{}", best_singlet, singlet_posterior, doublet_posterior, best_singleton_log_prob, best_doublet_log_prob)); 
                     //print!("{}\tunassigned\t{}\t{}\t{}\t", cell_barcode, best_singlet, best_singleton_log_prob, best_doublet_log_prob);
                 }
             } else {
-            
                 if doublet_posterior >= params.doublet_threshold {
                     if !all_removed.contains(&cell) {
                         all_removed.insert(cell);
@@ -189,7 +188,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
                         eprintln!("removing {} as doublet", cell_barcode);
                     }
                     
-                    assignment.push(format!("doublet\t{}/{}\t{}\t{}", best_doublet1, best_doublet2,best_singleton_log_prob, best_doublet_log_prob));
+                    assignment.push(format!("doublet\t{}/{}\t{}\t{}\t{}\t{}", best_doublet1, best_doublet2, singlet_posterior, doublet_posterior, best_singleton_log_prob, best_doublet_log_prob));
                     //print!("{}\tdoublet\t{}/{}\t{}\t{}\t", cell_barcode, best_doublet1, best_doublet2, best_singleton_log_prob, best_doublet_log_prob);
                 } else {
                     //if !all_removed.contains(&cell) {
@@ -197,7 +196,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
                     //    new_removed.push(cell);
                     //    eprintln!("removing {} as unassigned doublet", cell_barcode);
                    // }
-                    assignment.push(format!("unassigned\t{}/{}\t{}\t{}",best_doublet1, best_doublet2, best_singleton_log_prob, best_doublet_log_prob));
+                    assignment.push(format!("unassigned\t{}/{}\t{}\t{}\t{}\t{}", best_doublet1, best_doublet2, singlet_posterior, doublet_posterior, best_singleton_log_prob, best_doublet_log_prob));
                     //print!("{}\tunassigned\t{}/{}\t{}\t{}\t", cell_barcode, best_doublet1, best_doublet2, best_singleton_log_prob, best_doublet_log_prob); 
                 }
             }
