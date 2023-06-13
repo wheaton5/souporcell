@@ -511,7 +511,6 @@ def vartrix(args, final_vcf, final_bam):
                 cmd.append("--umi")
             subprocess.check_call(cmd, stdout = out, stderr = err)
     subprocess.check_call(['touch', args.out_dir + "/vartrix.done"])
-    subprocess.check_call(['rm', args.out_dir + "/vartrix.out", args.out_dir + "/vartrix.err"])
     return((ref_mtx, alt_mtx))
 
 def souporcell(args, ref_mtx, alt_mtx, final_vcf):
