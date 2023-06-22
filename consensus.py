@@ -20,15 +20,6 @@ dirname = args.output_dir
 
 
 def myopen(fname): return open(fname, 'rb') if fname.endswith('.gz') else open(fname)
-vcftemplate = vcf.Reader(myopen(args.vcf))
-potential_RNAedits = set()
-excluded = 0
-for (index, rec) in enumerate(vcftemplate):
-    if (rec.REF == "T" and str(rec.ALT[0]) == "C") or (rec.REF == "A" and str(rec.ALT[0]) == "G"):
-        potential_RNAedits.add(index+1)
-        excluded += 1
-print(str(excluded) +" excluded for potential RNA editing")
-
 cell_genotype_consensus = """
 data {
     int<lower=0> cells; // number of cells
@@ -163,12 +154,20 @@ else:
     args.ploidy = 2
 import os
 import pickle
-sm = pickle.load(open(os.path.realpath(__file__)[0:-12]+"stan_consensus.pickle",'rb'))
-#sm = pystan.StanModel(model_code=cell_genotype_consensus)
-#with open("stan_consensus.pickle",'wb') as model:
-#    pickle.dump(sm, model)
-#assert False
+#sm = pickle.load(open(os.path.realpath(__file__)[0:-12]+"stan_consensus.pickle",'rb'))
+sm = pystan.StanModel(model_code=cell_genotype_consensus)
+with open("stan_consensus.pickle",'wb') as model:
+    pickle.dump(sm, model)
 from scipy.special import logsumexp
+vcftemplate = vcf.Reader(myopen(args.vcf))
+potential_RNAedits = set()
+excluded = 0
+for (index, rec) in enumerate(vcftemplate):
+    if (rec.REF == "T" and str(rec.ALT[0]) == "C") or (rec.REF == "A" and str(rec.ALT[0]) == "G"):
+        potential_RNAedits.add(index+1)
+        excluded += 1
+print(str(excluded) +" excluded for potential RNA editing")
+
 
 #print("got here")
 
