@@ -302,8 +302,6 @@ def retag(args, minimap_tmp_files):
         retag_error_files[i].close()
         retag_out_files[i].close()
         assert not(p.returncode), "retag subprocess ended abnormally with code " + str(p.returncode)
-    for outfile in retag_files:
-        subprocess.check_call(['rm',outfile+".err", outfile+".out"])
 
 
     print("sorting retagged bam files")
@@ -481,7 +479,6 @@ def freebayes(args, bam, fasta):
     final_vcf = args.out_dir + "/souporcell_merged_sorted_vcf.vcf.gz"
     subprocess.check_call(['tabix', '-p', 'vcf', final_vcf])
     for vcf in all_vcfs:
-        subprocess.check_call(['rm', vcf[:-3] + ".err"])       
         subprocess.check_call(['rm', vcf +".csi"])
     subprocess.check_call(['rm'] + all_vcfs)
     if len(bed_files) > 0:
