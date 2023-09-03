@@ -238,7 +238,7 @@ def remap(args, region_fastqs, all_fastqs):
         with open(args.out_dir + "/tmp.fq", 'w') as tmpfq:
             subprocess.check_call(['cat'] + region_fastqs[index], stdout = tmpfq)
         with open(output, 'w') as samfile:
-            with open(args.out_dir + "/minimap.err",'w') as minierr:
+            with open(args.out_dir + "/logs/minimap.err",'w') as minierr:
                 minierr.write("mapping\n")
                 if args.aligner == "HISAT2":
                     fasta_base = args.fasta
@@ -308,7 +308,7 @@ def retag(args, minimap_tmp_files):
     # sort retagged files
     sort_jobs = []
     filenames = []
-    with open(args.out_dir + "/retag.err", 'w') as retagerr:
+    with open(args.out_dir + "/logs/retag.err", 'w') as retagerr:
         for index in range(args.threads):
             if index > len(retag_files) - 1:
                 continue
@@ -389,9 +389,9 @@ def freebayes(args, bam, fasta):
         for tmp in merged_depthfiles:
             subprocess.check_call(['rm', tmp])
 
-
-        with open(args.out_dir + "/common_variants_covered_tmp.vcf", 'w') as vcf:
-            subprocess.check_call(["bedtools", "intersect", "-wa", "-a", args.common_variants, "-b", args.out_dir + "/depth_merged.bed"], stdout = vcf)
+        with open(args.out_dir + "/logs/bed_intersect.err", 'w') as intersect_err:
+            with open(args.out_dir + "/common_variants_covered_tmp.vcf", 'w') as vcf:
+                subprocess.check_call(["bedtools", "intersect", "-wa", "-a", args.common_variants, "-b", args.out_dir + "/depth_merged.bed"], stdout = vcf, stderr = intersect_err)
         with open(args.out_dir + "/common_variants_covered_tmp.vcf") as vcf:
             with open(args.common_variants) as common:
                 with open(args.out_dir + "/common_variants_covered.vcf",'w') as out:
@@ -465,11 +465,11 @@ def freebayes(args, bam, fasta):
     subprocess.check_call(["ls "+args.out_dir+"/*.vcf.gz | xargs -n1 -P"+str(args.threads) +" bcftools index"],shell=True)
     with open(args.out_dir + "/souporcell_merged_vcf.vcf", 'w') as vcfout:
         subprocess.check_call(["bcftools", "concat", '-a'] + all_vcfs, stdout = vcfout)
-    with open(args.out_dir + "/bcftools.err", 'w') as vcferr:
+    with open(args.out_dir + "/logs/bcftools.err", 'w') as vcferr:
         with open(args.out_dir + "/souporcell_merged_sorted_vcf.vcf", 'w') as vcfout:
             subprocess.check_call(['bcftools', 'sort', args.out_dir + "/souporcell_merged_vcf.vcf"], stdout = vcfout, stderr = vcferr)
     if not args.common_variants == None:
-        with open(args.out_dir + "/common.err", 'w') as err:
+        with open(args.out_dir + "/logs/common.err", 'w') as err:
             with open(args.out_dir + "/vcftmp", 'w') as out:
                 subprocess.check_call(['bedtools', 'intersect', '-wa', 
                     '-a', args.out_dir + "/souporcell_merged_vcf.vcf", '-b', args.common_variants], stdout = out, stderr = err)
@@ -500,7 +500,7 @@ def vartrix(args, final_vcf, final_bam):
         with open(args.out_dir + "/barcodes.tsv",'w') as bcsout:
             subprocess.check_call(['gunzip', '-c', barcodes],stdout = bcsout)
         barcodes = args.out_dir + "/barcodes.tsv"
-    with open(args.out_dir + "/vartrix.err", 'w') as err:
+    with open(args.out_dir + "/logs/vartrix.err", 'w') as err:
         with open(args.out_dir + "/vartrix.out", 'w') as out:
             cmd = ["vartrix", "--mapq", "30", "-b", final_bam, "-c", barcodes, "--scoring-method", "coverage", "--threads", str(args.threads),
                 "--ref-matrix", ref_mtx, "--out-matrix", alt_mtx, "-v", final_vcf, "--fasta", args.fasta]
@@ -514,7 +514,7 @@ def souporcell(args, ref_mtx, alt_mtx, final_vcf):
     print("running souporcell clustering")
     cluster_file = args.out_dir + "/clusters_tmp.tsv"
     with open(cluster_file, 'w') as log:
-        with open(args.out_dir+"/clusters.err",'w') as err:
+        with open(args.out_dir+"/logs/clusters.err",'w') as err:
             directory = os.path.dirname(os.path.realpath(__file__))
             cmd = [directory+"/souporcell/target/release/souporcell", "-k",args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
                 "--restarts", str(args.restarts), "-b", args.barcodes, "--min_ref", args.min_ref, "--min_alt", args.min_alt, 
@@ -532,7 +532,7 @@ def doublets(args, ref_mtx, alt_mtx, cluster_file):
     print("running souporcell doublet detection")
     doublet_file = args.out_dir + "/clusters.tsv"
     with open(doublet_file, 'w') as dub:
-        with open(args.out_dir+"/doublets.err",'w') as err:
+        with open(args.out_dir+"/logs/doublets.err",'w') as err:
             directory = os.path.dirname(os.path.realpath(__file__))
             subprocess.check_call([directory+"/troublet/target/release/troublet", "--alts", alt_mtx, "--refs", ref_mtx, "--clusters", cluster_file], stdout = dub, stderr = err)
     subprocess.check_call(['touch', args.out_dir + "/troublet.done"])
@@ -551,7 +551,7 @@ def consensus(args, ref_mtx, alt_mtx, doublet_file):
 if os.path.isdir(args.out_dir):
     print("restarting pipeline in existing directory " + args.out_dir)
 else:
-    subprocess.check_call(["mkdir", "-p", args.out_dir])
+    subprocess.check_call(["mkdir", "-p", args.out_dir + "/logs"])
 if not args.skip_remap:
     if not os.path.exists(args.out_dir + "/fastqs.done"):
         (region_fastqs, all_fastqs) = make_fastqs(args)
