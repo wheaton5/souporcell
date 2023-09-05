@@ -64,7 +64,7 @@ args:
         long: initialization_strategy
         required: false
         takes_value: true
-        help: cluster initialization strategy, defaults to kmeans++, valid values are kmeans++, random_uniform, middle_variance, random_cell_assignment
+        help: cluster initialization strategy, defaults to random_uniform, other methods not yet implemented
     - threads:
         long: threads
         short: t
