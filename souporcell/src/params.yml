@@ -39,7 +39,6 @@ args:
         help: minimum number of cells containing the ref allele for the variant to be used for clustering 
     - restarts:
         long: restarts
-        short: r
         takes_value: true
         required: false
         help: number of random seedings
