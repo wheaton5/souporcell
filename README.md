@@ -206,7 +206,7 @@ samtools index minitagged_sorted.bam
 You may wish to break this into multiple jobs such as 1 job per chromosome and merge after but the basic command is the following.
 Requires [freebayes](https://github.com/ekg/freebayes) and add /path/to/freebayes/bin to your PATH
 ```
-freebayes -f <reference_fasta> -iXu -C 2 -q 20 -n 3 -E 1 -m 30 --min-coverage 6 --max-coverage 100000 minitagged_sorted.bam
+freebayes -f <reference_fasta> -iXu -C 2 -q 20 -n 3 -E 1 -m 30 --min-coverage 6 --skip-coverage 100000 minitagged_sorted.bam
 ```
 
 ### 3. Cell allele counting 
