@@ -1,0 +1,92 @@
+name: souporcell
+version: "2.4"
+author: Haynes Heaton <whheaton@gmail.com>
+about: clustering scRNAseq cells by genotype
+args:
+    - ref_matrix:
+        long: ref_matrix
+        short: r
+        takes_value: true
+        required: true
+        help: ref matrix from vartrix
+    - alt_matrix: 
+        long: alt_matrix
+        short: a
+        takes_value: true
+        required: true
+        help: alt matrix from vartrix
+    - barcodes:
+        long: barcodes
+        short: b
+        takes_value: true
+        required: true
+        help: cell barcodes
+    - cell_hashing_assignments:
+        long: cell_hashing_assignments
+        short: c
+        takes_value: true
+        required: false
+    - num_clusters:
+        long: num_clusters
+        short: k
+        takes_value: true
+        required: true
+        help: number of clusters
+    - min_alt:
+        long: min_alt
+        takes_value: true
+        required: false
+        help: minimum number of cells containing the alt allele for the variant to be used for clustering
+    - min_ref:
+        long: min_ref
+        takes_value: true
+        required: false
+        help: minimum number of cells containing the ref allele for the variant to be used for clustering 
+    - restarts:
+        long: restarts
+        takes_value: true
+        required: false
+        help: number of random seedings
+    - known_genotypes:
+        long: known_genotypes
+        short: g
+        required: false
+        takes_value: true
+        help: population vcf/bcf of known genotypes if available.
+    - known_genotypes_sample_names:
+        long: known_genotypes_sample_names
+        required: false
+        takes_value: true
+        multiple: true
+        help: sample names, must be samples from the known_genotypes vcf
+    - known_cell_assignments:
+        long: known_cell_assignments
+        required: false
+        takes_value: true
+        help: tsv with barcodes and their known assignments
+    - initialization_strategy:
+        long: initialization_strategy
+        required: false
+        takes_value: true
+        help: cluster initialization strategy, defaults to random_uniform, other methods not yet implemented
+    - threads:
+        long: threads
+        short: t
+        required: false
+        takes_value: true
+        help: number of threads to use
+    - seed:
+        long: seed
+        required: false
+        takes_value: true
+        help: optional random seed
+    - min_alt_umis:
+        long: min_alt_umis
+        required: false
+        takes_value: true
+        help: min alt umis to use locus for clustering
+    - min_ref_umis:
+        long: min_ref_umis
+        required: false
+        takes_value: true
+        help: min ref umis to use locus for clustering
