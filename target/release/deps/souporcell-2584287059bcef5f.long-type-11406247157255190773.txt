@@ -1,1 +1,0 @@
-for<'a, 'b> fn(&'a hashbrown::HashSet<usize>, hashbrown::HashMap<usize, usize>, Vec<Vec<f32>>, usize, Vec<CellData>, &'b Params, Vec<std::string::String>, hashbrown::HashMap<usize, usize>, Vec<(std::string::String, std::string::String)>) {cellector}
