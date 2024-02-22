@@ -100,7 +100,7 @@ fn cellector( ref_alt_counts_per_locus:HashMap<usize, [u32; 2]>,index_to_locus: 
     let seed = [params.seed; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    let (mut beta_cluster_centers, mut locus_to_index_for_beta_centers) = init_beta_binomial_cluster_centers(ref_alt_counts_per_locus,loci, &cell_data, params, &mut rng, index_to_locus.clone());
+    let (mut beta_cluster_centers, mut locus_to_index_for_beta_centers) = init_beta_binomial_cluster_centers(ref_alt_counts_per_locus,loci, &cell_data, params,&list_of_loci_used, &mut rng, index_to_locus.clone());
 
     let (log_loss, log_probabilities) = beta_EM(index_to_locus, locus_to_index_for_beta_centers,&mut beta_cluster_centers.clone() , &cell_data, params, loci);
     // println!("log_loss = {}", log_loss);    
@@ -269,7 +269,7 @@ fn souporcell_main(list_of_loci_used: &HashSet<usize> ,loci_cell_count :HashMap<
 // REZA EM function for beta binomial
 fn beta_EM(index_to_locus: Vec<usize>, locus_to_index_for_beta_centers: HashMap<usize, usize>, beta_cluster_centers: &mut Vec<Vec<(f32, f32)>>, cell_data: &Vec<CellData>,params: &Params, loci: usize) -> (f64, Vec<Vec<f64>>) {
 
-    let mut beta_loss_values: Vec<f64> = Vec::new();
+
     let mut total_log_loss = f32::NEG_INFINITY;
     let mut beta_loss_values: Vec<f64> = Vec::new();
     let mut iterations = 0;
@@ -291,12 +291,13 @@ fn beta_EM(index_to_locus: Vec<usize>, locus_to_index_for_beta_centers: HashMap<
         log_beta_loss_total = 0.0;
         for (celldex, cell) in cell_data.iter().enumerate() {
 
-            beta_loss_values = log_beta_loss_PMF(cell, &beta_cluster_centers, celldex, params,locus_to_index_for_beta_centers.clone());
-            // println!("beta_loss_values = {:?}", beta_loss_values);
+            beta_loss_values = log_beta_loss_PMF(cell, &beta_cluster_centers, celldex, params,locus_to_index_for_beta_centers.clone(),index_to_locus.clone());
+            println!("beta_loss_values = {:?}", beta_loss_values);
 
             log_beta_loss_total += log_sum_exp_64(beta_loss_values.clone());
 
             let normalize_in_log = normalize_log_probabilities2(beta_loss_values);
+            // println!("normalize_in_log = {:?}", normalize_in_log);
             final_log_probabilities[celldex] = normalize_in_log.clone();
             // println!("final logs= {:?}", final_log_probabilities[celldex]);   
         }
@@ -544,32 +545,36 @@ fn EM(locus_to_index: HashMap<usize, usize> ,list_of_loci_used: &HashSet<usize> 
 
 
 //REZA beta_loss function
-fn log_beta_loss_PMF(cell_data: &CellData, cluster_centers: &Vec<Vec<(f32, f32)>>, _cellnum: usize, params: &Params, locus_to_index_for_beta_centers: HashMap<usize, usize>
+fn log_beta_loss_PMF(cell_data: &CellData, cluster_centers: &Vec<Vec<(f32, f32)>>, _cellnum: usize, params: &Params, locus_to_index_for_beta_centers: HashMap<usize, usize>, index_to_locus: Vec<usize>,
 ) -> Vec<f64> {
 
     let mut probabilities: Vec<f64> = Vec::new();
     for (cluster, centers) in cluster_centers.iter().enumerate() {
-        let mut prior: f64 = (1.0/params.num_clusters as f64).ln();
-        probabilities.push(prior);
-        for (locus_index, locus) in cell_data.loci.iter().enumerate() {
-            if let Some(loci_index) = locus_to_index_for_beta_centers.get(&locus) {
-                let center = centers[*loci_index];
-                let alpha = center.0;
-                let beta = center.1;
-                let coefficient = cell_data.log_binomial_coefficient[locus_index] as f64;
-                let log_prob_num = log_beta_calc(cell_data.alt_counts[locus_index] as f32 + alpha, cell_data.ref_counts[locus_index] as f32 + beta);
-                let log_prob_denom = log_beta_calc(alpha, beta);
-                let log_prob = ( (coefficient + log_prob_num) - log_prob_denom );
-                probabilities[cluster] += log_prob;
-            }
-        }
 
+        let mut log_prior: f64 = (1.0/params.num_clusters as f64).ln();
+        probabilities.push(log_prior);
+        for (index, locus_index) in cell_data.loci.iter().enumerate() {
+
+            let locus = index_to_locus[*locus_index];
+            let mut center_index = 0;
+            center_index = *locus_to_index_for_beta_centers.get(&locus).unwrap();
+            let center = centers[center_index];
+
+            let alpha = center.0;
+            let beta = center.1;
+            let coefficient = cell_data.log_binomial_coefficient[index] as f64;
+            let log_prob_num = log_beta_calc(cell_data.alt_counts[index] as f32 + alpha, cell_data.ref_counts[index] as f32 + beta);
+            let log_prob_denom = log_beta_calc(alpha, beta);
+            let log_prob = ( (coefficient + log_prob_num) - log_prob_denom );
+            probabilities[cluster] += log_prob;
+
+        }
     }
-    // println!("probabilities = {:?}", probabilities);
+
     probabilities
 }
 
-
+//REZA beta binomial calculation
 fn log_beta_calc(alpha: f32, beta: f32) -> f64 {
 
     let log_gamma_alpha = statrs::function::gamma::ln_gamma(alpha as f64);
@@ -702,43 +707,34 @@ fn update_centers_average(sums: &mut Vec<Vec<f32>>, denoms: &mut Vec<Vec<f32>>, 
 
 
 //REZA beta binomial cluster centers initialization
-fn init_beta_binomial_cluster_centers(ref_alt_counts_per_locus:HashMap<usize, [u32; 2]>, loci: usize, cell_data: &Vec<CellData>, params: &Params, rng: &mut StdRng, index_to_locus: Vec<usize>) -> 
+fn init_beta_binomial_cluster_centers(ref_alt_counts_per_locus:HashMap<usize, [u32; 2]>,
+     loci: usize, cell_data: &Vec<CellData>, params: &Params, 
+     list_of_loci_used: &HashSet<usize>,
+     rng: &mut StdRng, index_to_locus: Vec<usize>) -> 
 (Vec<Vec<(f32, f32)>>, HashMap<usize, usize>) {
 
-    let mut centers: Vec<Vec<(f32, f32)>> = Vec::new();
 
-    for cluster in 0..params.num_clusters {
-        centers.push(Vec::new());
-        for _ in 0..loci {
-            let center_tuple = (
-                rng.gen::<f32>().min(0.0001).max(0.0002),
-                rng.gen::<f32>().min(0.0001).max(0.0002)
-            );
-            centers[cluster].push(center_tuple);
-        }
+    let mut centers: Vec<Vec<(f32, f32)>> = Vec::with_capacity(params.num_clusters as usize);
+
+    // Initialize each cluster with empty vectors
+    for _ in 0..params.num_clusters {
+        centers.push(vec![(0.0, 0.0); loci]);
     }
     
     let mut locus_to_index_for_beta_centers: HashMap<usize, usize> = HashMap::new();
 
-
-    for locus_index in 0..loci {
-
-
-        
+    println!("loci = {}", loci);
+    for (locus_index, locus) in list_of_loci_used.iter().enumerate(){
         let mut alt_counts = 0.0 as f32;
         let mut ref_counts = 0.0 as f32;
         
-        let locus = index_to_locus[locus_index as usize];
-        locus_to_index_for_beta_centers.insert(locus, locus_index);
-
-        let counts = ref_alt_counts_per_locus.get(&locus).unwrap(); 
+        let counts = ref_alt_counts_per_locus.get(&locus).unwrap(); // REZA -> May need to change this
         // println!("counts = {:?}\t locus {}", counts, locus);
         let ref_count = counts[0] as f32; 
         let alt_count = counts[1] as f32;
 
         ref_counts = ref_count;
         alt_counts = alt_count;
-
 
         let x = rng.gen_range(0.0, alt_counts);
         let y = rng.gen_range(0.0, ref_counts);
@@ -749,21 +745,71 @@ fn init_beta_binomial_cluster_centers(ref_alt_counts_per_locus:HashMap<usize, [u
         let alpha_2 = 1.0 + (alt_counts - x);
         let beta_2 = 1.0 + (ref_counts - y);
 
-
-        // let alpha_1 = rng.gen_range(1.0, 25.0);
-        // let beta_1 = rng.gen_range(1.0, 25.0);
-        // let alpha_2 = rng.gen_range(25.0, 56.0);
-        // let beta_2 = rng.gen_range(25.0, 56.0);
-
         centers[0][locus_index] = (alpha_1, beta_1);
         centers[1][locus_index] = (alpha_2, beta_2);
-
         // println!("alpha_1 = {}\t beta_1 = {}\t\t alpha_2 = {}\t beta_2 = {}", alpha_1, beta_1, alpha_2, beta_2);
-
-
+        locus_to_index_for_beta_centers.insert(*locus, locus_index);
     }
 
 
+
+    // for locus_index in 0..loci {
+
+
+
+        
+    //     let mut alt_counts = 0.0 as f32;
+    //     let mut ref_counts = 0.0 as f32;
+        
+    //     let locus = index_to_locus[locus_index as usize];
+
+    //     locus_to_index_for_beta_centers.insert(locus_index, locus as usize);
+
+    //     let counts = ref_alt_counts_per_locus.get(&locus).unwrap(); 
+    //     // println!("counts = {:?}\t locus {}", counts, locus);
+    //     let ref_count = counts[0] as f32; 
+    //     let alt_count = counts[1] as f32;
+
+    //     ref_counts = ref_count;
+    //     alt_counts = alt_count;
+
+
+    //     let x = rng.gen_range(0.0, alt_counts);
+    //     let y = rng.gen_range(0.0, ref_counts);
+
+    //     let alpha_1 = 1.0 + x;
+    //     let beta_1 =  1.0 + y;
+
+    //     let alpha_2 = 1.0 + (alt_counts - x);
+    //     let beta_2 = 1.0 + (ref_counts - y);
+
+
+    //     // let alpha_1 = rng.gen_range(1.0, 25.0);
+    //     // let beta_1 = rng.gen_range(1.0, 25.0);
+    //     // let alpha_2 = rng.gen_range(25.0, 56.0);
+    //     // let beta_2 = rng.gen_range(25.0, 56.0);
+
+    //     centers[0][locus_index] = (alpha_1, beta_1);
+    //     centers[1][locus_index] = (alpha_2, beta_2);
+    //     // println!("alpha_1 = {}\t beta_1 = {}\t\t alpha_2 = {}\t beta_2 = {}", alpha_1, beta_1, alpha_2, beta_2);
+
+
+
+    // }
+
+
+    // for loci in 0..loci {
+    //     println!("loci = {}\t{:?}", loci, centers[0][loci]);
+    //     println!("loci = {}\t{:?}", loci, centers[1][loci]);
+    //     println!("\n");
+    // // }
+    // for loci in 0..loci {
+    //     let locus = index_to_locus[loci];
+        
+    //     let index = locus_to_index_for_beta_centers.get(&locus).unwrap();
+
+    //     println!("locus = {}\tloci = {}\tindex = {}",locus , loci, index);
+    // }
 
     
     (centers, locus_to_index_for_beta_centers)
