@@ -12,22 +12,27 @@ From: ubuntu:18.04
     conda activate;
     
 %post
-    # update and install essential dependencies
+    # update and install essential system dependencies
     apt-get -y update
     apt-get update && apt-get install -y automake build-essential bzip2 wget git default-jre unzip
     apt-get -y install wget
     apt-get -y install curl
     
-    # download, install, and update miniconda3
+    # download, install, and setup miniconda3 to specifically use Python 3.10
     wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
     bash Miniconda3-latest-Linux-x86_64.sh -b -f -p /miniconda3/
     rm Miniconda3-latest-Linux-x86_64.sh
     
-    # install dependencies via conda
+    # Set PATH to include Miniconda3 bin directory
     export PATH="/miniconda3/bin:$PATH"
-    conda install -y -c conda-forge pip numpy # general dependencies
+    
+    # Install Python 3.10 specifically along with some initial packages
+    conda install -y -c conda-forge pip numpy # Install general dependencies
+    conda install -y python=3.10 # Python 3.10 
+
     conda update --all
     
+    # Continue with other system dependencies installations
     apt-get -y install libncurses5-dev
     apt-get -y install zlib1g-dev
     apt-get -y install libbz2-dev
@@ -59,7 +64,13 @@ From: ubuntu:18.04
     cargo build --release
     cd /opt
     pip install pysam
-    pip install git+https://github.com/stan-dev/pystan2.git@master
+    pip install numpy
+    pip install cython
+
+
+
+
+     pip install git+https://github.com/stan-dev/pystan2.git@master
     pip install pyfaidx
     pip install "setuptools<58" --upgrade
     pip install pyvcf
@@ -102,4 +113,6 @@ From: ubuntu:18.04
     Author whheaton
     Version v2.1
     MyLabel souporcell
+
+
 
