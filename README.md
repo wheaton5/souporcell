@@ -19,7 +19,7 @@ souporcell is comprised of 6 steps with the first 3 using external tools and the
 
 Download singularity image (1.3gb) (singularity is similar to docker but safe for clusters)
 ```
-singularity pull shub://wheaton5/souporcell
+singularity pull --arch amd64 library://wheaton5/souporcell/souporcell:release
 ```
 
 If you are running on a scientific cluster, they will likely have singularity, contact your sysadmin for more details. 
