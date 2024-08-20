@@ -25,7 +25,7 @@ singularity pull --arch amd64 library://wheaton5/souporcell/souporcell:release
 If you are running on a scientific cluster, they will likely have singularity, contact your sysadmin for more details. 
 If you are running on your own linux box you may need to install [singularity](https://www.sylabs.io/guides/3.2/user-guide/quick_start.html#quick-installation-steps)
 
-requires singularity >= 3.0
+requires singularity >= 3.0 or apptainer version >= 1.0.0 (singularity rebranded as apptainer and changed its version numbers)
 ```
 which singularity
 singularity --version
