@@ -21,6 +21,11 @@ args:
         takes_value: true
         required: true
         help: cell barcodes
+    - cell_hashing_assignments:
+        long: cell_hashing_assignments
+        short: c
+        takes_value: true
+        required: false
     - num_clusters:
         long: num_clusters
         short: k
