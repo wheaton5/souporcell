@@ -26,7 +26,7 @@ parser.add_argument("--skip_remap", required = False, default = False, type = bo
     help = "don't remap with minimap2 (not recommended unless in conjunction with --common_variants")
 parser.add_argument("--no_umi", required = False, default = "False", help = "set to True if your bam has no UMI tag, will ignore/override --umi_tag")
 parser.add_argument("--umi_tag", required = False, default = "UB", help = "set if your umi tag is not UB")
-parser.add_argument("--cell_tag", required = False, default = "CB", help = "DOES NOT WORK, vartrix doesnt support this! set if your cell barcode tag is not CB")
+parser.add_argument("--cell_tag", required = False, default = "CB", help = "set if your cell barcode tag is not CB")
 parser.add_argument("--ignore", required = False, default = False, type = bool, help = "set to True to ignore data error assertions")
 parser.add_argument("--aligner", required = False, default = "minimap2", help = "optionally change to HISAT2 if you have it installed, not included in singularity build")
 args = parser.parse_args()
@@ -59,7 +59,6 @@ open_function = lambda f: gzip.open(f,"rt") if f[-3:] == ".gz" else open(f)
 print("checking bam for expected tags")
 UMI_TAG = args.umi_tag
 CELL_TAG = args.cell_tag
-assert CELL_TAG == "CB", "vartrix doesnt support different cell tags, remake bam with cell tag as CB"
 #load each file to make sure it is legit
 bc_set = set()
 with open_function(args.barcodes) as barcodes:
@@ -507,7 +506,7 @@ def vartrix(args, final_vcf, final_bam):
     with open(args.out_dir + "/vartrix.err", 'w') as err:
         with open(args.out_dir + "/vartrix.out", 'w') as out:
             cmd = ["vartrix", "--mapq", "30", "-b", final_bam, "-c", barcodes, "--scoring-method", "coverage", "--threads", str(args.threads),
-                "--ref-matrix", ref_mtx, "--out-matrix", alt_mtx, "-v", final_vcf, "--fasta", args.fasta]
+                "--ref-matrix", ref_mtx, "--out-matrix", alt_mtx, "-v", final_vcf, "--fasta", args.fasta, "--bam-tag", str(args.cell_tag)]
             if not(args.no_umi) and args.umi_tag == "UB":
                 cmd.append("--umi")
             subprocess.check_call(cmd, stdout = out, stderr = err)
