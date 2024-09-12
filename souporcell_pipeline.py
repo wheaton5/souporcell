@@ -1,5 +1,11 @@
 #!/usr/bin/env python
 
+####
+# lines changed:
+# 220, 245, 258, 264, 268, 270
+# DK
+###
+
 import argparse
 
 parser = argparse.ArgumentParser(
@@ -14,15 +20,15 @@ parser.add_argument("-p", "--ploidy", required = False, default = "2", help = "p
 parser.add_argument("--min_alt", required = False, default = "10", help = "min alt to use locus, default = 10.")
 parser.add_argument("--min_ref", required = False, default = "10", help = "min ref to use locus, default = 10.")
 parser.add_argument("--max_loci", required = False, default = "2048", help = "max loci per cell, affects speed, default = 2048.")
-parser.add_argument("--restarts", required = False, default = 100, type = int, 
+parser.add_argument("--restarts", required = False, default = 100, type = int,
     help = "number of restarts in clustering, when there are > 12 clusters we recommend increasing this to avoid local minima")
-parser.add_argument("--common_variants", required = False, default = None, 
+parser.add_argument("--common_variants", required = False, default = None,
     help = "common variant loci or known variant loci vcf, must be vs same reference fasta")
-parser.add_argument("--known_genotypes", required = False, default = None, 
+parser.add_argument("--known_genotypes", required = False, default = None,
     help = "known variants per clone in population vcf mode, must be .vcf right now we dont accept gzip or bcf sorry")
-parser.add_argument("--known_genotypes_sample_names", required = False, nargs = '+', default = None, 
+parser.add_argument("--known_genotypes_sample_names", required = False, nargs = '+', default = None,
     help = "which samples in population vcf from known genotypes option represent the donors in your sample")
-parser.add_argument("--skip_remap", required = False, default = False, type = bool, 
+parser.add_argument("--skip_remap", required = False, default = False, type = bool,
     help = "don't remap with minimap2 (not recommended unless in conjunction with --common_variants")
 parser.add_argument("--no_umi", required = False, default = "False", help = "set to True if your bam has no UMI tag, will ignore/override --umi_tag")
 parser.add_argument("--umi_tag", required = False, default = "UB", help = "set if your umi tag is not UB")
@@ -100,7 +106,7 @@ for (index,read) in enumerate(bam):
 if not args.ignore:
     if args.skip_remap and args.common_variants == None and args.known_genotypes == None:
         assert False, "WARNING: skip_remap enables without common_variants or known genotypes. Variant calls will be of poorer quality. Turn on --ignore True to ignore this warning"
-        
+
     assert float(num_cb) / float(num_read_test) > 0.5, "Less than 50% of first 100000 reads have cell barcode tag (CB), turn on --ignore True to ignore"
     if not(args.no_umi):
         assert float(num_umi) / float(num_read_test) > 0.5, "Less than 50% of first 100000 reads have UMI tag (UB), turn on --ignore True to ignore"
@@ -158,7 +164,7 @@ def get_bam_regions(bamname, threads):
         chrom_length = bam.get_reference_length(chrom)
         #print(chrom+" size "+str(chrom_length)+" and step size "+str(step_length))
         while True:
-            #print("\tregion so far "+str(region_so_far)+" chrom so far "+str(chrom_so_far)) 
+            #print("\tregion so far "+str(region_so_far)+" chrom so far "+str(chrom_so_far))
             #print("\t"+str(chrom_length - chrom_so_far)+" <= "+str(step_length - region_so_far))
             #print("\t"+str((chrom_length - chrom_so_far) <= step_length - region_so_far))
             if (chrom_length - chrom_so_far) <= step_length - region_so_far:
@@ -176,7 +182,7 @@ def get_bam_regions(bamname, threads):
                 region_so_far = 0
     if len(region) > 0:
         regions.append(region)
-    
+
     return regions
 
 def make_fastqs(args):
@@ -212,10 +218,10 @@ def make_fastqs(args):
                 chrom = region[sub_index][0]
                 start = region[sub_index][1]
                 end = region[sub_index][2]
-                fq_name = args.out_dir + "/souporcell_fastq_" + str(index) + "_" + str(sub_index) + ".fq"
+                fq_name = args.out_dir + "/souporcell_fastq_" + str(index) + "_" + str(sub_index) + ".fq" + ".gz" ### added ".gz" DK
                 directory = os.path.dirname(os.path.realpath(__file__))
                 p = subprocess.Popen([directory+"/renamer.py", "--bam", args.bam, "--barcodes", args.barcodes, "--out", fq_name,
-                        "--chrom", chrom, "--start", str(start), "--end", str(end), "--no_umi", str(args.no_umi), 
+                        "--chrom", chrom, "--start", str(start), "--end", str(end), "--no_umi", str(args.no_umi),
                         "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag])
                 all_fastqs.append(fq_name)
                 procs[index] = p
@@ -236,7 +242,8 @@ def remap(args, region_fastqs, all_fastqs):
             continue
         output = args.out_dir + "/souporcell_minimap_tmp_" + str(index) + ".sam"
         minimap_tmp_files.append(output)
-        with open(args.out_dir + "/tmp.fq", 'w') as tmpfq:
+        ### changed to gzip.open DK
+        with gzip.open(args.out_dir + "/tmp.fq.gz", 'wt') as tmpfq:
             subprocess.check_call(['cat'] + region_fastqs[index], stdout = tmpfq)
         with open(output, 'w') as samfile:
             with open(args.out_dir + "/minimap.err",'w') as minierr:
@@ -249,19 +256,19 @@ def remap(args, region_fastqs, all_fastqs):
                         fasta_base = fasta_base[:-6]
                     else:
                         assert False, "fasta file not right extension .fa or .fasta"
-                    subprocess.check_call(["hisat2", "-p", str(args.threads), "-q", args.out_dir + "/tmp.fq", "-x", 
+                    subprocess.check_call(["hisat2", "-p", str(args.threads), "-q", args.out_dir + "/tmp.fq.gz", "-x",  ### added ".gz" DK
                     fasta_base,
                     "-S", output], stderr =minierr)
                 else:
                     cmd = ["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21",
                         "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
-                        "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq"]
+                        "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq.gz"] ### added ".gz" DK
                     minierr.write(" ".join(cmd)+"\n")
-                    subprocess.check_call(["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21", 
+                    subprocess.check_call(["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21",
                         "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
-                        "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq"], 
+                        "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.fasta, args.out_dir + "/tmp.fq.gz"],  ### added ".gz" DK
                         stdout = samfile, stderr = minierr)
-        subprocess.check_call(['rm', args.out_dir + "/tmp.fq"])
+        subprocess.check_call(['rm', args.out_dir + "/tmp.fq.gz"]) ### added ".gz" DK
 
     with open(args.out_dir + '/remapping.done', 'w') as done:
         for fn in minimap_tmp_files:
@@ -282,7 +289,7 @@ def retag(args, minimap_tmp_files):
     for index in range(args.threads):
         if index > len(minimap_tmp_files) -1:
             continue
-        
+
         outfile = args.out_dir + "/souporcell_retag_tmp_" + str(index) + ".bam"
         retag_files.append(outfile)
         errfile = open(outfile+".err",'w')
@@ -295,7 +302,7 @@ def retag(args, minimap_tmp_files):
             "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile]
         print(" ".join(cmd))
         directory = os.path.dirname(os.path.realpath(__file__))
-        p = subprocess.Popen([directory+"/retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi), 
+        p = subprocess.Popen([directory+"/retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi),
             "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile], stdout = outfileout, stderr = errfile)
         procs.append(p)
     for (i, p) in enumerate(procs): # wait for processes to finish
@@ -319,7 +326,7 @@ def retag(args, minimap_tmp_files):
             filenames.append(filename)
             p = subprocess.Popen(["samtools", "sort", retag_files[index], '-o', filename], stderr = retagerr)
             sort_jobs.append(p)
-        
+
     # wait for jobs to finish
     for job in sort_jobs:
         job.wait()
@@ -333,7 +340,7 @@ def retag(args, minimap_tmp_files):
     final_bam = args.out_dir + "/souporcell_minimap_tagged_sorted.bam"
     subprocess.check_call(["samtools", "merge", final_bam] + filenames)
     subprocess.check_call(["samtools", "index", final_bam])
-    
+
     print("cleaning up tmp samfiles")
     # clean up tmp samfiles
     for samfile in minimap_tmp_files:
@@ -351,7 +358,7 @@ def freebayes(args, bam, fasta):
         if not(args.known_genotypes == None):
             print("using known genotypes")
             args.common_variants = args.known_genotypes
-        
+
         # parallelize the samtools depth call. It takes too long
         regions = get_bam_regions(bam, int(args.threads))
         depth_files = []
@@ -371,8 +378,8 @@ def freebayes(args, bam, fasta):
                 subprocess.check_call(["chmod", "777", depthfile+".sh"])
                 #ps0 = subprocess.Popen(['samtools', 'view', bam]+region_args, stdout = subprocess.PIPE)
                 #ps1 = subprocess.Popen(['samtools', 'depth', '-'], stdin = ps0.stdout, stdout = subprocess.PIPE)
-                # awk magic 
-                #ps2 = subprocess.Popen(["awk '{ if ($3 >= " + str(min_cov) + " && $3 < 100000) { print $1 \"\t\" $2 \"\t\" $2+1 \"\t\" $3 } }'"], 
+                # awk magic
+                #ps2 = subprocess.Popen(["awk '{ if ($3 >= " + str(min_cov) + " && $3 < 100000) { print $1 \"\t\" $2 \"\t\" $2+1 \"\t\" $3 } }'"],
                 #    shell = True, stdin = ps1.stdout, stdout = bed)
                 ps = subprocess.Popen([depthfile+".sh"], shell = True, stdout = bed)
                 depth_procs.append(ps)
@@ -443,11 +450,11 @@ def freebayes(args, bam, fasta):
                 filehandles.append(filehandle)
                 errhandle = open(vcf_name + ".err", 'w')
                 errhandles.append(errhandle)
-                    
+
                 cmd = ["freebayes", "-f", args.fasta, "-iXu", "-C", "2",
-                    "-q", "20", "-n", "3", "-E", "1", "-m", "30", 
+                    "-q", "20", "-n", "3", "-E", "1", "-m", "30",
                     "--min-coverage", str(int(args.min_alt)+int(args.min_ref)), "--pooled-continuous", "--skip-coverage", "100000"]
-                
+
                 cmd.extend(["-r", chrom + ":" + str(start) + "-" + str(end)])
                 print(" ".join(cmd))
                 cmd.append(bam)
@@ -474,7 +481,7 @@ def freebayes(args, bam, fasta):
     if not args.common_variants == None:
         with open(args.out_dir + "/common.err", 'w') as err:
             with open(args.out_dir + "/vcftmp", 'w') as out:
-                subprocess.check_call(['bedtools', 'intersect', '-wa', 
+                subprocess.check_call(['bedtools', 'intersect', '-wa',
                     '-a', args.out_dir + "/souporcell_merged_vcf.vcf", '-b', args.common_variants], stdout = out, stderr = err)
         subprocess.check_call(['mv', args.out_dir + "/vcftmp", args.out_dir + "/souporcell_merged_sorted_vcf.vcf"])
     subprocess.check_call(['rm', args.out_dir + '/souporcell_merged_vcf.vcf'])
@@ -482,14 +489,14 @@ def freebayes(args, bam, fasta):
     final_vcf = args.out_dir + "/souporcell_merged_sorted_vcf.vcf.gz"
     subprocess.check_call(['tabix', '-p', 'vcf', final_vcf])
     for vcf in all_vcfs:
-        subprocess.check_call(['rm', vcf[:-3] + ".err"])       
+        subprocess.check_call(['rm', vcf[:-3] + ".err"])
         subprocess.check_call(['rm', vcf +".csi"])
     subprocess.check_call(['rm'] + all_vcfs)
     if len(bed_files) > 0:
         for bed in bed_files:
             subprocess.check_call(['rm', bed + ".bed"])
         subprocess.check_call(['rm'] + bed_files)
-        
+
     with open(args.out_dir + "/variants.done", 'w') as done:
         done.write(final_vcf + "\n")
     return(final_vcf)
@@ -498,7 +505,7 @@ def freebayes(args, bam, fasta):
 def vartrix(args, final_vcf, final_bam):
     print("running vartrix")
     ref_mtx = args.out_dir + "/ref.mtx"
-    alt_mtx = args.out_dir + "/alt.mtx"  
+    alt_mtx = args.out_dir + "/alt.mtx"
     barcodes = args.barcodes
     if barcodes[-3:] == ".gz":
         with open(args.out_dir + "/barcodes.tsv",'w') as bcsout:
@@ -521,15 +528,15 @@ def souporcell(args, ref_mtx, alt_mtx, final_vcf):
     with open(cluster_file, 'w') as log:
         with open(args.out_dir+"/clusters.err",'w') as err:
             directory = os.path.dirname(os.path.realpath(__file__))
-            cmd = [directory+"/souporcell/target/release/souporcell", "-k",args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
-                "--restarts", str(args.restarts), "-b", args.barcodes, "--min_ref", args.min_ref, "--min_alt", args.min_alt, 
+            cmd = [directory+"/souporcell/target/release/souporcell", "-k",args.clusters, "-a", alt_mtx, "-r", ref_mtx,
+                "--restarts", str(args.restarts), "-b", args.barcodes, "--min_ref", args.min_ref, "--min_alt", args.min_alt,
                 "--threads", str(args.threads)]
             if not(args.known_genotypes == None):
                 cmd.extend(['--known_genotypes', final_vcf])
                 if not(args.known_genotypes_sample_names == None):
                     cmd.extend(['--known_genotypes_sample_names'] + args.known_genotypes_sample_names)
             print(" ".join(cmd))
-            subprocess.check_call(cmd, stdout = log, stderr = err) 
+            subprocess.check_call(cmd, stdout = log, stderr = err)
     subprocess.check_call(['touch', args.out_dir + "/clustering.done"])
     return(cluster_file)
 
@@ -578,7 +585,7 @@ if not args.skip_remap:
                 minimap_tmp_files.append(line.strip())
     if not os.path.exists(args.out_dir + "/retagging.done"):
         retag(args, minimap_tmp_files)
-    bam = args.out_dir + "/souporcell_minimap_tagged_sorted.bam" 
+    bam = args.out_dir + "/souporcell_minimap_tagged_sorted.bam"
 else:
     bam = args.bam
 if not os.path.exists(args.out_dir + "/variants.done"):
@@ -600,6 +607,4 @@ if not(os.path.exists(args.out_dir + "/consensus.done")):
     consensus(args, ref_mtx, alt_mtx, doublet_file)
 print("done")
 
-#### END MAIN RUN SCRIPT        
-
-
+#### END MAIN RUN SCRIPT
