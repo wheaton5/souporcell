@@ -85,3 +85,15 @@ args:
         required: false
         takes_value: true
         help: min ref umis to use locus for clustering
+    - souporcell3:
+        long: souporcell3
+        short: s3
+        required: false
+        takes_value: true
+        help: activate bad cluster detection and multiple runs
+    - clustering_method:
+        long: clustering_method
+        short: method
+        required: false
+        takes_value: true
+        help: activate bad cluster detection and multiple runs
