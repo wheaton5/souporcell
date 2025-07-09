@@ -24,7 +24,6 @@ use std::f32;
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::os::unix::thread;
 use std::path::Path;
 
 use hashbrown::{HashMap,HashSet};
@@ -71,19 +70,32 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
     // loop here for souporcell3, only run once for souporcell default
     for run in 0..3 {
         // find the bad cluster centers
-
+        let bad_cluster_centers_indices = bad_cluster_detection(params.num_clusters, &best_log_probabilities);
+        if run != 0 && bad_cluster_centers_indices.len() == 0 {
+            eprintln!("No outliers detected on run {}!, Exiting.", run);
+            break;
+        }
         let mut threads: Vec<ThreadData> = Vec::new();
         for i in 0..params.threads {
             threads.push(ThreadData::from_seed(new_seed(&mut rng), solves_per_thread, i));
         }
         threads.par_iter_mut().for_each(|thread_data| {
             for iteration in 0..thread_data.solves_per_thread {
+                let mut cluster_centers: Vec<Vec<f32>>;
                 // initialize the required cluster centers if run == 0
-
-                // else initialize bad cluster centers and replace them from thread_data, and lock the rest
-                let mut cluster_centers: Vec<Vec<f32>> = init_cluster_centers(loci_used, &cell_data, params, &mut thread_data.rng, &locus_to_index, params.num_clusters);
+                if run == 0 {
+                    cluster_centers = init_cluster_centers(loci_used, &cell_data, params, &mut thread_data.rng, &locus_to_index, params.num_clusters);
+                }
+                // reinitialize bad ones and replace
+                else {
+                    let bad_cluster_centers_reinitialized = init_cluster_centers(loci_used, &cell_data, params, &mut thread_data.rng, &locus_to_index, bad_cluster_centers_indices.len());
+                    cluster_centers = best_cluster_centers.clone();
+                    for (index, cluster_index) in bad_cluster_centers_indices.iter().enumerate() {
+                        cluster_centers[*cluster_index] = bad_cluster_centers_reinitialized[index].clone();
+                    }
+                }
                 // select the clustering method
-                let (log_loss, log_probabilities) = EM(loci_used, &mut cluster_centers, &cell_data, params, iteration, thread_data.thread_num, vec![]);
+                let (log_loss, log_probabilities) = em(loci_used, &mut cluster_centers, &cell_data, params, iteration, thread_data.thread_num, vec![]);
                 if log_loss > thread_data.best_total_log_probability {
                     thread_data.best_total_log_probability = log_loss;
                     thread_data.best_log_probabilities = log_probabilities;
@@ -93,7 +105,6 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
                     thread_data.thread_num, iteration, log_loss, thread_data.best_total_log_probability);
             }
         });
-        
         for thread_data in threads {
             if thread_data.best_total_log_probability > best_log_probability {
                 best_log_probability = thread_data.best_total_log_probability;
@@ -102,7 +113,6 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
             }
         }
     }
-    
     eprintln!("best total log probability = {}", best_log_probability);
     //println!("finished with {}",best_log_probability);
     for (bc, log_probs) in barcodes.iter().zip(best_log_probabilities.iter()) {
@@ -122,7 +132,7 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
     }
 }
 
-fn bad_cluster_detection (num_clusters: usize, best_log_probabilities: Vec<Vec<f32>>) -> Vec<usize> {
+fn bad_cluster_detection (num_clusters: usize, best_log_probabilities: &Vec<Vec<f32>>) -> Vec<usize> {
     // only do this if cluster size > 16
     if num_clusters < 16 {
         return vec![];
@@ -130,7 +140,7 @@ fn bad_cluster_detection (num_clusters: usize, best_log_probabilities: Vec<Vec<f
     let mut assigned_vec: Vec<(usize, usize)> = vec![(0, 0); num_clusters];
     let mut replace_clusters= vec![];
     // find the cluster which has lowest loss for each cell
-    for final_log_probability in &best_log_probabilities {
+    for final_log_probability in best_log_probabilities {
         let index_of_max: usize = final_log_probability.iter().enumerate().max_by(|(_, a), (_, b)| a.total_cmp(b)).map(|(index, _)| index).unwrap();
         assigned_vec[index_of_max].0 = index_of_max;
         assigned_vec[index_of_max].1 += 1;
@@ -140,7 +150,7 @@ fn bad_cluster_detection (num_clusters: usize, best_log_probabilities: Vec<Vec<f
     let cut_off_index_low = 1 * (assigned_vec.len() / 8);
     let cut_off_index_high = 7 * (assigned_vec.len() / 8);
     // the cluster centers with less than MIN cells
-    for (index, (cc, assigned_cell_num)) in assigned_vec.iter().enumerate() {
+    for (_index, (cc, assigned_cell_num)) in assigned_vec.iter().enumerate() {
         if *assigned_cell_num < 50 {
             replace_clusters.push(*cc);
         }
@@ -172,7 +182,7 @@ fn bad_cluster_detection (num_clusters: usize, best_log_probabilities: Vec<Vec<f
     replace_clusters
 }
 
-fn EM(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params, epoch: usize, thread_num: usize, locked_clusters: Vec<usize>) -> (f32, Vec<Vec<f32>>) {
+fn em(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params, epoch: usize, thread_num: usize, locked_clusters: Vec<usize>) -> (f32, Vec<Vec<f32>>) {
     let num_clusters = params.num_clusters;
     let mut sums: Vec<Vec<f32>> = Vec::new();
     let mut denoms: Vec<Vec<f32>> = Vec::new();
@@ -216,7 +226,7 @@ fn EM(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData
                 log_binom_loss += log_sum_exp(&log_binoms);
                 //eprintln!("cell {} loci {} total_alleles {}", celldex, cell.loci.len(), cell.total_alleles);
                 //log_loss += log_sum_exp(&log_binoms);
-                let mut temp = (cell.total_alleles/(20.0 * 2.0f32.powf((temp_step as f32)))).max(1.0);
+                let mut temp = (cell.total_alleles/(20.0 * 2.0f32.powf(temp_step as f32))).max(1.0);
                 if temp_step == temp_steps - 1 { temp = 1.0; }
                 //if temp_step > 0 { temp = 1.0; }
                 let probabilities = normalize_in_log_with_temp(&log_binoms, temp);
@@ -262,7 +272,7 @@ fn EM(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData
     (total_log_loss, final_log_probabilities)
 }
 
-fn KHM(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params, epoch: usize, thread_num: usize, locked_clusters: Vec<usize>) -> (f32, Vec<Vec<f32>>) {
+fn khm(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params, epoch: usize, thread_num: usize, locked_clusters: Vec<usize>) -> (f32, Vec<Vec<f32>>) {
     let num_clusters = params.num_clusters;
     // sums and denoms for likelihood calculation
     let mut sums: Vec<Vec<f32>> = Vec::new();
