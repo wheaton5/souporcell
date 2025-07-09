@@ -70,9 +70,9 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
     // loop here for souporcell3, only run once for souporcell default
     for run in 0..3 {
         // find the bad cluster centers
-        let bad_cluster_centers_indices = bad_cluster_detection(params.num_clusters, &best_log_probabilities);
+        let bad_cluster_centers_indices = bad_cluster_detection(run, params.num_clusters, &best_log_probabilities);
         if run != 0 && bad_cluster_centers_indices.len() == 0 {
-            eprintln!("No outliers detected on run {}!, Exiting.", run);
+            eprintln!("No outliers detected on run {}!, Exiting.", run + 1);
             break;
         }
         let mut threads: Vec<ThreadData> = Vec::new();
@@ -82,20 +82,32 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
         threads.par_iter_mut().for_each(|thread_data| {
             for iteration in 0..thread_data.solves_per_thread {
                 let mut cluster_centers: Vec<Vec<f32>>;
+                let locked_cluster_centers: Vec<usize>;
                 // initialize the required cluster centers if run == 0
                 if run == 0 {
                     cluster_centers = init_cluster_centers(loci_used, &cell_data, params, &mut thread_data.rng, &locus_to_index, params.num_clusters);
+                    locked_cluster_centers = vec![];
                 }
-                // reinitialize bad ones and replace
+                // reinitialize bad ones and replace, lock the rest
                 else {
                     let bad_cluster_centers_reinitialized = init_cluster_centers(loci_used, &cell_data, params, &mut thread_data.rng, &locus_to_index, bad_cluster_centers_indices.len());
                     cluster_centers = best_cluster_centers.clone();
                     for (index, cluster_index) in bad_cluster_centers_indices.iter().enumerate() {
                         cluster_centers[*cluster_index] = bad_cluster_centers_reinitialized[index].clone();
                     }
+                    locked_cluster_centers = (0..params.num_clusters).filter(|x| !bad_cluster_centers_indices.contains(x)).collect();
                 }
+                let (log_loss, log_probabilities);
                 // select the clustering method
-                let (log_loss, log_probabilities) = em(loci_used, &mut cluster_centers, &cell_data, params, iteration, thread_data.thread_num, vec![]);
+                match params.clustering_method {
+                    ClusterMethod::EM => {
+                        (log_loss, log_probabilities) = em(loci_used, &mut cluster_centers, &cell_data, params, iteration, thread_data.thread_num, locked_cluster_centers);
+                    }
+                    ClusterMethod::KHM => {
+                        (log_loss, log_probabilities) = khm(loci_used, &mut cluster_centers, &cell_data, params, iteration, thread_data.thread_num, locked_cluster_centers);
+                    }
+                }
+                
                 if log_loss > thread_data.best_total_log_probability {
                     thread_data.best_total_log_probability = log_loss;
                     thread_data.best_log_probabilities = log_probabilities;
@@ -111,6 +123,10 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
                 best_log_probabilities = thread_data.best_log_probabilities;
                 best_cluster_centers = thread_data.cluster_centers;
             }
+        }
+        // quit here if souporcell
+        if params.souporcell3 == false {
+            //break;
         }
     }
     eprintln!("best total log probability = {}", best_log_probability);
@@ -132,9 +148,9 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
     }
 }
 
-fn bad_cluster_detection (num_clusters: usize, best_log_probabilities: &Vec<Vec<f32>>) -> Vec<usize> {
-    // only do this if cluster size > 16
-    if num_clusters < 16 {
+fn bad_cluster_detection (run: usize, num_clusters: usize, best_log_probabilities: &Vec<Vec<f32>>) -> Vec<usize> {
+    // only do this if cluster size > 16 or first run
+    if num_clusters < 16 || run == 0 {
         return vec![];
     }
     let mut assigned_vec: Vec<(usize, usize)> = vec![(0, 0); num_clusters];
@@ -146,43 +162,31 @@ fn bad_cluster_detection (num_clusters: usize, best_log_probabilities: &Vec<Vec<
         assigned_vec[index_of_max].1 += 1;
     }
     assigned_vec.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-    // outlier detection does not work (do first and fourth quater)
+    // outlier first and fourth quaters
     let cut_off_index_low = 1 * (assigned_vec.len() / 8);
     let cut_off_index_high = 7 * (assigned_vec.len() / 8);
-    // the cluster centers with less than MIN cells
-    for (_index, (cc, assigned_cell_num)) in assigned_vec.iter().enumerate() {
-        if *assigned_cell_num < 50 {
-            replace_clusters.push(*cc);
-        }
-    }
-    // add the same amount from the other end
-    for add_index in 0..replace_clusters.len() {
-        let temp = assigned_vec[assigned_vec.len() - add_index - 1];
-        if !replace_clusters.contains(&temp.1) && replace_clusters.len() < num_clusters {
-            replace_clusters.push(temp.1);
-        }
-    }
     // add all outliers and ones below MIN to replace cluster
+    eprintln!("Cluster Analysis");
     for (index, (cluster, loss)) in assigned_vec.iter().enumerate() {
         eprint!("{}:\tcluster\t{}\tloss\t{}", index, cluster, loss);
         if index < cut_off_index_low {
-            if !replace_clusters.contains(&cluster) {
+            if !replace_clusters.contains(cluster) {
                 replace_clusters.push(*cluster);
             }
-            eprint!(" outlier added");
+            eprint!(" outlier");
         }
         else if index > cut_off_index_high {
-            if !replace_clusters.contains(&cluster) {
+            if !replace_clusters.contains(cluster) {
                 replace_clusters.push(*cluster);
             }
-            eprint!(" outlier added");
+            eprint!(" outlier");
         }
         eprintln!("");
     }
     replace_clusters
 }
 
-fn em(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params, epoch: usize, thread_num: usize, locked_clusters: Vec<usize>) -> (f32, Vec<Vec<f32>>) {
+fn em(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params, epoch: usize, thread_num: usize, locked_cluster_centers: Vec<usize>) -> (f32, Vec<Vec<f32>>) {
     let num_clusters = params.num_clusters;
     let mut sums: Vec<Vec<f32>> = Vec::new();
     let mut denoms: Vec<Vec<f32>> = Vec::new();
@@ -242,7 +246,7 @@ fn em(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData
             log_loss_change = log_binom_loss - last_log_loss;//log_loss - last_log_loss;
             last_log_loss = log_binom_loss;//log_loss;
 
-            update_final_with_lock(loci, &sums, &denoms, cluster_centers, &locked_clusters);
+            update_final_with_lock(loci, &sums, &denoms, cluster_centers, &locked_cluster_centers);
             iterations += 1;
             // using the final log probabilities, get the number of clusters assigned
             let mut cells_per_cluster: Vec<usize> = vec![0; num_clusters];
@@ -256,7 +260,7 @@ fn em(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData
                     clusters_above_threshold += 1;
                 }
             }
-            eprintln!("binomial\t{}\t{}\t{}\t{}\t{}\t{}\t{}", thread_num, epoch, iterations, temp_step, log_binom_loss, log_loss_change, clusters_above_threshold);//, cluster_cells_weighted);
+            eprintln!("binomial\t{}\t{}\t{}\t{}\t{:8}\t{:8}\t{}", thread_num, epoch, iterations, temp_step, log_binom_loss, log_loss_change, clusters_above_threshold);//, cluster_cells_weighted);
         }
     }
     //for (celldex, probabilities) in cell_probabilities.iter().enumerate() {
@@ -272,7 +276,7 @@ fn em(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData
     (total_log_loss, final_log_probabilities)
 }
 
-fn khm(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params, epoch: usize, thread_num: usize, locked_clusters: Vec<usize>) -> (f32, Vec<Vec<f32>>) {
+fn khm(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData>, params: &Params, epoch: usize, thread_num: usize, locked_cluster_centers: Vec<usize>) -> (f32, Vec<Vec<f32>>) {
     let num_clusters = params.num_clusters;
     // sums and denoms for likelihood calculation
     let mut sums: Vec<Vec<f32>> = Vec::new();
@@ -331,7 +335,7 @@ fn khm(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellDat
             total_log_loss = log_binom_loss;
             log_loss_change = log_binom_loss - last_log_loss;
             last_log_loss = log_binom_loss;
-            update_final_with_lock(loci, &sums, &denoms, cluster_centers, &locked_clusters);
+            update_final_with_lock(loci, &sums, &denoms, cluster_centers, &locked_cluster_centers);
             iterations += 1;
             // using the final log probabilities, get the number of clusters assigned
             let mut cells_per_cluster: Vec<usize> = vec![0; num_clusters];
@@ -377,10 +381,10 @@ fn calculate_q_for_current_cell (log_loss_vec: &Vec<f32>, min_clus: usize) -> (V
     (q_vec, q_sum)
 }
 
-fn update_final_with_lock(loci: usize, sums: &Vec<Vec<f32>>, denoms: &Vec<Vec<f32>>, cluster_centers: &mut Vec<Vec<f32>>, locked_clusters: &Vec<usize>) {
+fn update_final_with_lock(loci: usize, sums: &Vec<Vec<f32>>, denoms: &Vec<Vec<f32>>, cluster_centers: &mut Vec<Vec<f32>>, locked_cluster_centers: &Vec<usize>) {
     for locus in 0..loci {
         for cluster in 0..sums.len() {
-            if locked_clusters.contains(&cluster) {
+            if locked_cluster_centers.contains(&cluster) {
                 continue;
             }
             let update = sums[cluster][locus]/denoms[cluster][locus];
@@ -389,7 +393,7 @@ fn update_final_with_lock(loci: usize, sums: &Vec<Vec<f32>>, denoms: &Vec<Vec<f3
     }
 }
 
-fn sum_of_squares_loss(cell_data: &CellData, cluster_centers: &Vec<Vec<f32>>, log_prior: f32, _cellnum: usize) -> Vec<f32> {
+fn _sum_of_squares_loss(cell_data: &CellData, cluster_centers: &Vec<Vec<f32>>, log_prior: f32, _cellnum: usize) -> Vec<f32> {
     let mut log_probabilities: Vec<f32> = Vec::new();
     for (cluster, center) in cluster_centers.iter().enumerate() {
         log_probabilities.push(log_prior);
@@ -425,7 +429,7 @@ fn log_sum_exp(p: &Vec<f32>) -> f32{
     max_p + sum_rst.ln()
 }
 
-fn normalize_in_log(log_probs: &Vec<f32>) -> Vec<f32> { // takes in a log_probability vector and converts it to a normalized probability
+fn _normalize_in_log(log_probs: &Vec<f32>) -> Vec<f32> { // takes in a log_probability vector and converts it to a normalized probability
     let mut normalized_probabilities: Vec<f32> = Vec::new();
     let sum = log_sum_exp(log_probs);
     for i in 0..log_probs.len() {
@@ -458,7 +462,7 @@ fn reset_sums_denoms(loci: usize, sums: &mut Vec<Vec<f32>>,
 }
 
 
-fn update_centers_flat(sums: &mut Vec<Vec<f32>>, denoms: &mut Vec<Vec<f32>>, cell: &CellData, probabilities: &Vec<f32>) {
+fn _update_centers_flat(sums: &mut Vec<Vec<f32>>, denoms: &mut Vec<Vec<f32>>, cell: &CellData, probabilities: &Vec<f32>) {
     for locus in 0..cell.loci.len() {
         for (cluster, _probability) in probabilities.iter().enumerate() {
             sums[cluster][cell.loci[locus]] += probabilities[cluster] * cell.allele_fractions[locus];
@@ -728,6 +732,8 @@ struct Params {
     initialization_strategy: ClusterInit,
     threads: usize,
     seed: u8,
+    clustering_method: ClusterMethod,
+    souporcell3: bool
 }
 
 #[derive(Clone)]
@@ -736,6 +742,12 @@ enum ClusterInit {
     RandomUniform,
     RandomAssignment,
     MiddleVariance,
+}
+
+#[derive(Clone)]
+enum ClusterMethod {
+    EM,
+    KHM
 }
 
 fn load_params() -> Params {
@@ -800,6 +812,19 @@ fn load_params() -> Params {
     let min_alt_umis = params.value_of("min_alt_umis").unwrap_or("0");
     let min_alt_umis = min_alt_umis.to_string().parse::<u32>().unwrap();
 
+    let clustering_method = params.value_of("clustering_method").unwrap_or("em");
+    let clustering_method = match clustering_method {
+        "em" => ClusterMethod::EM,
+        "khm" => ClusterMethod::KHM,
+        _ => {
+            assert!(false, "Clustering method must be one of em, khm");
+            ClusterMethod::EM
+        },
+    };
+
+    let souporcell3 = params.value_of("souporcell3").unwrap_or("false");
+    let souporcell3 = souporcell3.to_string().parse::<bool>().unwrap();
+
     Params{
         ref_mtx: ref_mtx.to_string(),
         alt_mtx: alt_mtx.to_string(),
@@ -816,6 +841,8 @@ fn load_params() -> Params {
         seed: seed,
         min_alt_umis: min_alt_umis,
         min_ref_umis: min_ref_umis,
+        clustering_method: clustering_method,
+        souporcell3: souporcell3
     }
 }
 
