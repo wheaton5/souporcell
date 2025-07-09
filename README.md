@@ -3,6 +3,7 @@
 <img src="https://github.com/wheaton5/souporcell/blob/master/souporcell_star.png" width="100">
 
 Manuscript of this method available at https://www.nature.com/articles/s41592-020-0820-1
+
 The manuscript describing the high-donor clustering method, Souporcell3, is available at https://www.nature.com/articles/s41592-020-0820-1
 
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
