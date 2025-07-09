@@ -126,7 +126,7 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
         }
         // quit here if souporcell
         if params.souporcell3 == false {
-            //break;
+            break;
         }
     }
     eprintln!("best total log probability = {}", best_log_probability);
