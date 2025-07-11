@@ -257,10 +257,10 @@ OPTIONS:
             tsv with barcodes and their known assignments
 
     -g, --known_genotypes <known_genotypes>
-            population vcf/bcf of known genotypes if available.
+            NOT YET IMPLEMENTED population vcf/bcf of known genotypes if available.
 
         --known_genotypes_sample_names <known_genotypes_sample_names>...
-            sample names, must be samples from the known_genotypes vcf
+            NOT YET IMPLEMENTED sample names, must be samples from the known_genotypes vcf
 
         --min_alt <min_alt>
             minimum number of cells containing the alt allele for the variant to be used for clustering
@@ -288,7 +288,7 @@ souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 > cluste
 If you are clustering more than 16 samples, use Souporcell3 with k harmonic means clustering.
 (This enables multiple runs with bad cluster center reinitialization)
 ```
-souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 -s3 true -m khm > clusters_tmp.tsv
+souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 -s true -m khm > clusters_tmp.tsv
 ```
 
 ### 5. Calling doublets

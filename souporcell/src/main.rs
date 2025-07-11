@@ -153,7 +153,7 @@ fn bad_cluster_detection (run: usize, num_clusters: usize, best_log_probabilitie
     if num_clusters < 16 || run == 0 {
         return vec![];
     }
-    let mut assigned_vec: Vec<(usize, usize)> = vec![(0, 0); num_clusters];
+    let mut assigned_vec: Vec<(usize, usize)> = (0..num_clusters).map(|i| (i, 0)).collect();
     let mut replace_clusters= vec![];
     // find the cluster which has lowest loss for each cell
     for final_log_probability in best_log_probabilities {
@@ -162,9 +162,10 @@ fn bad_cluster_detection (run: usize, num_clusters: usize, best_log_probabilitie
         assigned_vec[index_of_max].1 += 1;
     }
     assigned_vec.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-    // outlier first and fourth quaters
-    let cut_off_index_low = 1 * (assigned_vec.len() / 8);
-    let cut_off_index_high = 7 * (assigned_vec.len() / 8);
+    // decrease the reinitialization percent with run
+    let run_value = 3 - run; 
+    let cut_off_index_low = run_value * (assigned_vec.len() / 16);
+    let cut_off_index_high = (16 - run_value) * (assigned_vec.len() / 16);
     // add all outliers and ones below MIN to replace cluster
     eprintln!("Cluster Analysis");
     for (index, (cluster, loss)) in assigned_vec.iter().enumerate() {
