@@ -11,7 +11,7 @@ parser.add_argument("-t", "--threads", required = True, type = int, help = "max 
 parser.add_argument("-o", "--out_dir", required = True, help = "name of directory to place souporcell files")
 parser.add_argument("-k", "--clusters", required = True, help = "number cluster, tbd add easy way to run on a range of k")
 parser.add_argument("-p", "--ploidy", required = False, default = "2", help = "ploidy, must be 1 or 2, default = 2")
-parser.add_argument("-I", "--max_base_mem", required = False, help = "maximum number of target bases that can be held in RAM for indexing. Increase the number if --split-index in minimap2 affects retag.py process.")
+parser.add_argument("-I", "--max_base_mem", required = False, help = "maximum number of target bases that can be held in RAM for indexing, increase the number if --split-index in minimap2 affects retag.py process.")
 parser.add_argument("--min_alt", required = False, default = "10", help = "min alt to use locus, default = 10.")
 parser.add_argument("--min_ref", required = False, default = "10", help = "min ref to use locus, default = 10.")
 parser.add_argument("--max_loci", required = False, default = "2048", help = "max loci per cell, affects speed, default = 2048.")
