@@ -1,8 +1,10 @@
-# souporcell 
+# souporcell3 
 
 <img src="https://github.com/wheaton5/souporcell/blob/master/souporcell_star.png" width="100">
 
-Preprint manuscript of this method available at https://www.biorxiv.org/content/10.1101/699637v1
+Manuscript of this method available at https://www.nature.com/articles/s41592-020-0820-1
+
+The manuscript describing the high-donor clustering method, Souporcell3, is available at https://www.nature.com/articles/s41592-020-0820-1
 
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
 
@@ -245,15 +247,18 @@ FLAGS:
 OPTIONS:
     -a, --alt_matrix <alt_matrix>                                           alt matrix from vartrix
     -b, --barcodes <barcodes>                                               cell barcodes
+    -m, --clustering_method <clustering_method>
+            choose between expectation maximization (em) and k harmonic means (khm)
+
         --initialization_strategy <initialization_strategy>
-            cluster initialization strategy, defaults to kmeans++, valid values are kmeans++, random_uniform,
-            middle_variance, random_cell_assignment
+            cluster initialization strategy, defaults to random_uniform, other methods not yet implemented
+
         --known_cell_assignments <known_cell_assignments>
             tsv with barcodes and their known assignments
 
     -g, --known_genotypes <known_genotypes>
             NOT YET IMPLEMENTED population vcf/bcf of known genotypes if available.
-            
+
         --known_genotypes_sample_names <known_genotypes_sample_names>...
             NOT YET IMPLEMENTED sample names, must be samples from the known_genotypes vcf
 
@@ -267,8 +272,11 @@ OPTIONS:
         --min_ref_umis <min_ref_umis>                                       min ref umis to use locus for clustering
     -k, --num_clusters <num_clusters>                                       number of clusters
     -r, --ref_matrix <ref_matrix>                                           ref matrix from vartrix
-    -r, --restarts <restarts>                                               number of random seedings
+        --restarts <restarts>                                               number of random seedings
         --seed <seed>                                                       optional random seed
+    -s, --souporcell3 <souporcell3>
+            activate bad cluster detection and multiple runs
+
     -t, --threads <threads>                                                 number of threads to use
 ```
 So generally something along the lines of
@@ -276,6 +284,12 @@ So generally something along the lines of
 souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 > clusters_tmp.tsv
 ```
 (note clusters_tmp.tsv output as the doublet caller outputs the final clusters file)
+
+If you are clustering more than 16 samples, use Souporcell3 with k harmonic means clustering.
+(This enables multiple runs with bad cluster center reinitialization)
+```
+souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 -s true -m khm > clusters_tmp.tsv
+```
 
 ### 5. Calling doublets
 Rust required.
