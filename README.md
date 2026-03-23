@@ -2,9 +2,10 @@
 
 <img src="https://github.com/wheaton5/souporcell/blob/master/souporcell_star.png" width="100">
 
-Manuscript of this method available at https://www.nature.com/articles/s41592-020-0820-1
+Manuscripts of this method available at 
 
-The manuscript describing the high-donor clustering method, Souporcell3, is available at https://www.nature.com/articles/s41592-020-0820-1
+https://doi.org/10.1093/bioinformatics/btag117
+https://www.nature.com/articles/s41592-020-0820-1
 
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
 
@@ -65,6 +66,12 @@ optional arguments:
                         k
   -p PLOIDY, --ploidy PLOIDY
                         ploidy, must be 1 or 2, default = 2
+  -m CLUSTERING_METHOD, --clustering_method CLUSTERING_METHOD
+                        souporcell clustering method: choose between expectation maximization (em) and k harmonic means (khm)
+  -s SOUPORCELL3, --souporcell3 SOUPORCELL3
+                        set to True to use souporcell3, which iterates multiple times to refine the results; suitable for datasets with a high number of donors (>16).
+  -I MAX_BASE_MEM, --max_base_mem MAX_BASE_MEM
+                        maximum number of target bases that can be held in RAM for indexing, increase the number if --split-index in minimap2 affects retag.py process.
   --min_alt MIN_ALT     min alt to use locus, default = 10.
   --min_ref MIN_REF     min ref to use locus, default = 10.
   --max_loci MAX_LOCI   max loci per cell, affects speed, default = 2048.
@@ -233,7 +240,7 @@ And add /path/to/souporcell/souporcell/target/release to your path
 usage
 ```
 souporcell -h
-souporcell 2.4
+souporcell 3.0
 Haynes Heaton <whheaton@gmail.com>
 clustering scRNAseq cells by genotype
 
@@ -302,7 +309,7 @@ And add /path/to/souporcell/troublet/target/release to your path
 The usage is
 ```
 troublet -h
-troublet 2.4
+troublet 3.0
 Haynes Heaton <whheaton@gmail.com>
 Intergenotypic doublet detection given cluster assignments and cell allele counts
 

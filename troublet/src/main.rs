@@ -16,8 +16,6 @@ type FnvHashSet<T> = HashSet<T, BuildHasherDefault<FnvHasher>>;
 use clap::{App};
 
 use std::cmp::max;
-use std::cmp::min;
-use statrs::distribution::{Binomial, Discrete, Beta, Continuous};
 use statrs::function::{beta,factorial};
 use std::f64;
 
@@ -30,7 +28,7 @@ fn main() {
 }
 
 fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,usize),Vec<(f64,f64)>>, 
-        cell_clusters: Vec<(usize, usize)>, mut cluster_allele_fractions: FnvHashMap<(usize, usize), Vec<f64>>, 
+        _cell_clusters: Vec<(usize, usize)>, mut cluster_allele_fractions: FnvHashMap<(usize, usize), Vec<f64>>, 
         soup_allele_fractions: Vec<f64>, cell_allele_counts: Vec<Vec<(usize, u64, u64)>>, 
         cluster_losses: Vec<(String, Vec<f64>)>, total_locus_counts: HashMap<usize, usize>) { // good god i should use more structs
     let num_clusters = cluster_losses[0].1.len();
@@ -43,7 +41,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
     let mut all_assignments: Vec<Vec<String>> = Vec::new();
     let mut all_removed: HashSet<usize> = HashSet::new();
     let mut any_removed = 1; // fake for while loop
-    let mut best_singlets: Vec<usize> = Vec::new();
+    let mut best_singlets;
     let mut all_cluster_logprobs: Vec<Vec<f64>> = Vec::new();
     while any_removed > 0 {
         all_cluster_logprobs = Vec::new();
@@ -51,7 +49,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
         best_singlets = Vec::new();
         let mut new_removed: Vec<usize> = Vec::new();
         for (cell, loci) in cell_allele_counts.iter().enumerate() {
-            let debug = params.debug.contains(&cell);
+            let _debug = params.debug.contains(&cell);
             let mut best_doublet1 = 0;
             let mut best_doublet2 = 0;
             let mut best_doublet_log_prob = f64::NEG_INFINITY;
@@ -110,7 +108,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
                         let locus_counts = cluster_counts_vec[*locus];
                         //if locus_counts.0 + locus_counts.1 <= 35.0 { continue; }
                         //let beta = Beta::new(1.0+locus_counts.0, 1.0+locus_counts.1).unwrap();
-                        let locus_counts2 = cluster_counts_vec2[*locus];
+                        let _locus_counts2 = cluster_counts_vec2[*locus];
                         let locus_counts3 = cluster_counts_vec3[*locus];
                         
                         //let beta2 = Beta::new(1.0+locus_counts2.0, 1.0+locus_counts2.1).unwrap();
@@ -218,7 +216,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
         for cell in new_removed {
             let cluster1 = best_singlets[cell];
             for cluster2 in 0..num_clusters {
-                let mut counts = cluster_allele_counts.get_mut(&(cluster1, cluster2)).unwrap();
+                let counts = cluster_allele_counts.get_mut(&(cluster1, cluster2)).unwrap();
                 let loci = &cell_allele_counts[cell];
                 for (locus, ref_count, alt_count) in loci {
                     counts[*locus].0 = (counts[*locus].0 - *ref_count as f64).max(0.0);
@@ -230,7 +228,7 @@ fn call_doublets(params: &Params, mut cluster_allele_counts: FnvHashMap<(usize,u
         for cluster1 in 0..num_clusters {
             for cluster2 in 0..num_clusters {
             //let cluster2 = cluster1;
-                let mut fractions = cluster_allele_fractions.get_mut(&(cluster1,cluster2)).unwrap();
+                let fractions = cluster_allele_fractions.get_mut(&(cluster1,cluster2)).unwrap();
                 let cluster_counts = cluster_allele_counts.get_mut(&(cluster1,cluster2)).unwrap();
                 for locus in 0..fractions.len() {
                     let counts = cluster_counts[locus];
@@ -275,13 +273,13 @@ fn load_allele_data(params: &Params, cell_clusters: &Vec<(usize, usize)>, num_cl
     let refs = File::open(&params.refs).expect("unable to open ref file");
     let refs = BufReader::new(refs);
     let mut legal_loci: Vec<FnvHashSet<usize>> = Vec::new();
-    for cluster in 0..num_clusters {
-        let mut lociset: FnvHashSet<usize> = FnvHashSet::default();
+    for _cluster in 0..num_clusters {
+        let lociset: FnvHashSet<usize> = FnvHashSet::default();
         legal_loci.push(lociset);
     }
     for clust1 in 0..num_clusters {
         for clust2 in 0..num_clusters {
-            let mut cluster_pair_vector: Vec<(f64, f64)> = Vec::new();
+            let cluster_pair_vector: Vec<(f64, f64)> = Vec::new();
             cluster_allele_counts.insert((clust1, clust2), cluster_pair_vector);
         }
     }
@@ -296,7 +294,7 @@ fn load_allele_data(params: &Params, cell_clusters: &Vec<(usize, usize)>, num_cl
             let cells = tokens[1].parse::<usize>().unwrap();
             for clust1 in 0..num_clusters {
                 for clust2 in 0..num_clusters {
-                    let mut loci_vec = cluster_allele_counts.get_mut(&(clust1, clust2)).unwrap();
+                    let loci_vec = cluster_allele_counts.get_mut(&(clust1, clust2)).unwrap();
                     for _locus in 0..loci {
                         loci_vec.push((0.0, 0.0));
                     }
@@ -307,7 +305,7 @@ fn load_allele_data(params: &Params, cell_clusters: &Vec<(usize, usize)>, num_cl
                 locus_counts.insert(locus,0);
             }
             for _cell in 0..cells {
-                let mut cell_vec: Vec<(usize, u64, u64)> = Vec::new();
+                let cell_vec: Vec<(usize, u64, u64)> = Vec::new();
                 cell_allele_counts.push(cell_vec);
             }
             continue;
@@ -330,11 +328,11 @@ fn load_allele_data(params: &Params, cell_clusters: &Vec<(usize, usize)>, num_cl
         soup_allele_counts[locus].1 += altcount as f64;
         for clust2 in 0..num_clusters {
             
-            let mut locus_vec = cluster_allele_counts.get_mut(&(clust1, clust2)).unwrap();
+            let locus_vec = cluster_allele_counts.get_mut(&(clust1, clust2)).unwrap();
             locus_vec[locus].0 += refcount as f64;
             locus_vec[locus].1 += altcount as f64;
             if clust1 != clust2 {
-                let mut locus_vec = cluster_allele_counts.get_mut(&(clust2, clust1)).unwrap();
+                let locus_vec = cluster_allele_counts.get_mut(&(clust2, clust1)).unwrap();
                 locus_vec[locus].0 += refcount as f64;
                 locus_vec[locus].1 += altcount as f64;
             }
