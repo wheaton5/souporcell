@@ -4,8 +4,9 @@
 
 Manuscripts of this method available at 
 
-https://doi.org/10.1093/bioinformatics/btag117
-https://www.nature.com/articles/s41592-020-0820-1
+[Souporcell3: Robust Demultiplexing for High-Donor Single-Cell RNA-seq Datasets](https://doi.org/10.1093/bioinformatics/btag117)
+
+[Souporcell: robust clustering of single-cell RNA-seq data by genotype without reference genotypes](https://www.nature.com/articles/s41592-020-0820-1)
 
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
 
@@ -40,6 +41,7 @@ The options for using souporcell are:
 singularity exec souporcell_latest.sif souporcell_pipeline.py -h
 usage: souporcell_pipeline.py [-h] -i BAM -b BARCODES -f FASTA -t THREADS -o
                               OUT_DIR -k CLUSTERS [-p PLOIDY]
+                              [-m CLUSTERING_METHOD] [-s SOUPORCELL3]
                               [--min_alt MIN_ALT] [--min_ref MIN_REF]
                               [--max_loci MAX_LOCI] [--restarts RESTARTS]
                               [--common_variants COMMON_VARIANTS]
