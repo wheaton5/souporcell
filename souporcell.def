@@ -5,7 +5,7 @@ From: ubuntu:20.04
     # set up all essential environment variables
     export LC_ALL=C
     export PATH=/miniconda3/bin:/opt/minimap2-2.26_x64-linux:/opt/bedtools-2:/opt/freebayes/build:/opt/hisat2-2.2.1:/opt/bedtools2/bin:/opt/souporcell:/opt/souporcell/troublet/target/release:/usr/local/condabin:/opt/minimap2-2.26_x64-linux:/root/.cargo/bin:/opt:$PATH
-    export PYTHONPATH=/miniconda3/lib/python3.9/:$PYTHONPATH
+    export PYTHONPATH=/miniconda3/lib/python3.10/:$PYTHONPATH
     
     # activate conda environment
     source activate base;
@@ -76,7 +76,7 @@ From: ubuntu:20.04
     pip install numpy
     pip install cython
 
-    pip install git+https://github.com/stan-dev/pystan2.git@master
+    pip install pystan
     pip install pyfaidx
     pip install "setuptools<58" --upgrade
     pip install pyvcf
@@ -114,11 +114,7 @@ From: ubuntu:20.04
     chmod 777 vartrix
     cd ..
     
-
 %labels
     Author whheaton
     Version v3.0
     MyLabel souporcell
-
-
-
