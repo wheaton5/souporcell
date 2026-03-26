@@ -11,7 +11,6 @@ extern crate flate2;
 use flate2::read::MultiGzDecoder;
 use vcf::*;
 
-
 use rayon::prelude::*;
 
 use rand::Rng;
@@ -149,7 +148,7 @@ fn souporcell_main(loci_used: usize, cell_data: Vec<CellData>, params: &Params, 
 }
 
 fn bad_cluster_detection (run: usize, num_clusters: usize, best_log_probabilities: &Vec<Vec<f32>>) -> Vec<usize> {
-    // only do this if cluster size > 16 or first run
+    // only do this if cluster size > 16 or not first run
     if num_clusters < 16 || run == 0 {
         return vec![];
     }
@@ -257,6 +256,7 @@ fn em(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellData
             }
             let mut clusters_above_threshold = 0;
             for value in cells_per_cluster {
+                // make this a input parameter
                 if value > 200 {
                     clusters_above_threshold += 1;
                 }
@@ -346,6 +346,7 @@ fn khm(loci: usize, cluster_centers: &mut Vec<Vec<f32>>, cell_data: &Vec<CellDat
             }
             let mut clusters_above_threshold = 0;
             for value in cells_per_cluster {
+                // make this a input parameter
                 if value > 200 {
                     clusters_above_threshold += 1;
                 }

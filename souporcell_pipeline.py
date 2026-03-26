@@ -5,12 +5,14 @@ import argparse
 parser = argparse.ArgumentParser(
     description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering.")
 parser.add_argument("-i", "--bam", required = True, help = "cellranger bam")
-parser.add_argument("-b", "--barcodes", required = True, help = "barcodes.tsv from cellranger")
+parser.add_argument("-b", "--barcodes", required = True, help = "filtered barcodes.tsv from cellranger")
 parser.add_argument("-f", "--fasta", required = True, help = "reference fasta file")
 parser.add_argument("-t", "--threads", required = True, type = int, help = "max threads to use")
 parser.add_argument("-o", "--out_dir", required = True, help = "name of directory to place souporcell files")
 parser.add_argument("-k", "--clusters", required = True, help = "number cluster, tbd add easy way to run on a range of k")
 parser.add_argument("-p", "--ploidy", required = False, default = "2", help = "ploidy, must be 1 or 2, default = 2")
+parser.add_argument("-m", "--clustering_method", required = False, type = str, default = "em", help = "souporcell clustering method: choose between expectation maximization (em) and k harmonic means (khm)")
+parser.add_argument("-s", "--souporcell3", required = False, type = bool, default = False, help = "set to True to use souporcell3, which iterates multiple times to refine the results; suitable for datasets with a high number of donors (>16).")
 parser.add_argument("-I", "--max_base_mem", required = False, help = "maximum number of target bases that can be held in RAM for indexing, increase the number if --split-index in minimap2 affects retag.py process.")
 parser.add_argument("--min_alt", required = False, default = "10", help = "min alt to use locus, default = 10.")
 parser.add_argument("--min_ref", required = False, default = "10", help = "min ref to use locus, default = 10.")
@@ -31,8 +33,6 @@ parser.add_argument("--cell_tag", required = False, default = "CB", help = "DOES
 parser.add_argument("--ignore", required = False, default = False, type = bool, help = "set to True to ignore data error assertions")
 parser.add_argument("--aligner", required = False, default = "minimap2", help = "optionally change to HISAT2 if you have it installed, not included in singularity build")
 args = parser.parse_args()
-
-
 
 if args.no_umi == "True":
     args.no_umi = True
@@ -515,12 +515,15 @@ def vartrix(args, final_vcf, final_bam):
 def souporcell(args, ref_mtx, alt_mtx, final_vcf):
     print("running souporcell clustering")
     cluster_file = args.out_dir + "/clusters_tmp.tsv"
+    souporcell3 = "false"
+    if args.s == True:
+        souporcell3 = "true"
     with open(cluster_file, 'w') as log:
         with open(args.out_dir+"/logs/clusters.err",'w') as err:
             directory = os.path.dirname(os.path.realpath(__file__))
-            cmd = [directory+"/souporcell/target/release/souporcell", "-k",args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
+            cmd = [directory+"/souporcell/target/release/souporcell", "-k", args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
                 "--restarts", str(args.restarts), "-b", args.barcodes, "--min_ref", args.min_ref, "--min_alt", args.min_alt, 
-                "--threads", str(args.threads)]
+                "--threads", str(args.threads), "-s", args.s, souporcell3, "-m", args.m]
             if not(args.known_genotypes == None):
                 cmd.extend(['--known_genotypes', final_vcf])
                 if not(args.known_genotypes_sample_names == None):

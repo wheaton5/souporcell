@@ -1,6 +1,6 @@
 [package]
 name = "souporcell"
-version = "2.4.0"
+version = "3.0.0"
 authors = ["wheaton5 <whheaton@gmail.com>"]
 edition = "2018"
 
