@@ -32,6 +32,9 @@ parser.add_argument("--umi_tag", required = False, default = "UB", help = "set i
 parser.add_argument("--cell_tag", required = False, default = "CB", help = "DOES NOT WORK, vartrix doesnt support this! set if your cell barcode tag is not CB")
 parser.add_argument("--ignore", required = False, default = False, type = bool, help = "set to True to ignore data error assertions")
 parser.add_argument("--aligner", required = False, default = "minimap2", help = "optionally change to HISAT2 if you have it installed, not included in singularity build")
+parser.add_argument("--souporcell_path", required = False, default = None, help = "Path to souporcell executable (overrides auto-detection)")
+parser.add_argument("--troublet_path", required = False, default = None, help = "Path to troublet executable (overrides auto-detection)")
+
 args = parser.parse_args()
 
 if args.no_umi == "True":
@@ -40,7 +43,9 @@ else:
     args.no_umi = False
 
 print("checking modules")
-# importing all reqs to make sure things are installed
+# check whether all the modules are available and built
+
+# check python depecencies
 import numpy as np
 import scipy
 import gzip
@@ -53,7 +58,6 @@ import subprocess
 import time
 import os
 print("imports done")
-
 
 open_function = lambda f: gzip.open(f,"rt") if f[-3:] == ".gz" else open(f)
 
@@ -69,6 +73,8 @@ with open_function(args.barcodes) as barcodes:
         bc_set.add(bc)
 
 assert len(bc_set) > 50, "Fewer than 50 barcodes in barcodes file? We expect 1 barcode per line."
+if not args.ignore:
+    assert len(bc_set) > 200_000, "More than 200_000 barcodes file? is this the filtered barcode file? (do not use raw barcode file). turn on --ignore True to ignore "
 assert args.aligner == "minimap2" or args.aligner == "HISAT2", "--aligner expects minimap2 or HISAT2"
 
 assert not(not(args.known_genotypes == None) and not(args.common_variants == None)), "cannot set both know_genotypes and common_variants"
@@ -256,7 +262,11 @@ def remap(args, region_fastqs, all_fastqs):
                 else:
                     cmd = ["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21",
                         "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
-                        "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.max_base_mem, args.fasta, args.out_dir + "/tmp.fq"]
+                        "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no"]
+                    if args.max_base_mem:
+                        cmd.extend(["-I", args.max_base_mem])
+                    cmd.extend([args.fasta, args.out_dir + "/tmp.fq"])
+
                     minierr.write(" ".join(cmd)+"\n")
                     subprocess.check_call(["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21", 
                         "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
@@ -462,9 +472,9 @@ def freebayes(args, bam, fasta):
     for errhandle in errhandles:
         errhandle.close()
     print("merging vcfs")
-    subprocess.check_call(["ls "+args.out_dir+'/*.vcf | xargs -n1 -P'+str(args.threads)+' bgzip'],shell=True)
+    subprocess.check_call(["ls " + args.out_dir + '/*.vcf | xargs -n1 -P' + str(args.threads) + ' bgzip'],shell=True)
     all_vcfs = [vcf+".gz" for vcf in all_vcfs]
-    subprocess.check_call(["ls "+args.out_dir+"/*.vcf.gz | xargs -n1 -P"+str(args.threads) +" bcftools index"],shell=True)
+    subprocess.check_call(["ls " + args.out_dir + "/*.vcf.gz | xargs -n1 -P" + str(args.threads) + " bcftools index"],shell=True)
     with open(args.out_dir + "/souporcell_merged_vcf.vcf", 'w') as vcfout:
         subprocess.check_call(["bcftools", "concat", '-a'] + all_vcfs, stdout = vcfout)
     with open(args.out_dir + "/logs/bcftools.err", 'w') as vcferr:
@@ -521,7 +531,7 @@ def souporcell(args, ref_mtx, alt_mtx, final_vcf):
     with open(cluster_file, 'w') as log:
         with open(args.out_dir+"/logs/clusters.err",'w') as err:
             directory = os.path.dirname(os.path.realpath(__file__))
-            cmd = [directory+"/souporcell/target/release/souporcell", "-k", args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
+            cmd = [directory + "/souporcell/target/release/souporcell", "-k", args.clusters, "-a", alt_mtx, "-r", ref_mtx, 
                 "--restarts", str(args.restarts), "-b", args.barcodes, "--min_ref", args.min_ref, "--min_alt", args.min_alt, 
                 "--threads", str(args.threads), "-s", args.s, souporcell3, "-m", args.m]
             if not(args.known_genotypes == None):
@@ -539,18 +549,16 @@ def doublets(args, ref_mtx, alt_mtx, cluster_file):
     with open(doublet_file, 'w') as dub:
         with open(args.out_dir+"/logs/doublets.err",'w') as err:
             directory = os.path.dirname(os.path.realpath(__file__))
-            subprocess.check_call([directory+"/troublet/target/release/troublet", "--alts", alt_mtx, "--refs", ref_mtx, "--clusters", cluster_file], stdout = dub, stderr = err)
+            subprocess.check_call([directory + "/troublet/target/release/troublet", "--alts", alt_mtx, "--refs", ref_mtx, "--clusters", cluster_file], stdout = dub, stderr = err)
     subprocess.check_call(['touch', args.out_dir + "/troublet.done"])
     return(doublet_file)
 
-def consensus(args, ref_mtx, alt_mtx, doublet_file):
+def consensus(args, ref_mtx, alt_mtx, doublet_file, final_vcf):
     print("running co inference of ambient RNA and cluster genotypes")
     directory = os.path.dirname(os.path.realpath(__file__))
-    subprocess.check_call([directory+"/consensus.py", "-c", doublet_file, "-a", alt_mtx, "-r", ref_mtx, "-p", args.ploidy,
+    subprocess.check_call([directory + "/consensus.py", "-c", doublet_file, "-a", alt_mtx, "-r", ref_mtx, "-p", args.ploidy,
         "--output_dir",args.out_dir,"--soup_out", args.out_dir + "/ambient_rna.txt", "--vcf_out", args.out_dir + "/cluster_genotypes.vcf", "--vcf", final_vcf])
     subprocess.check_call(['touch', args.out_dir + "/consensus.done"])
-
-
 
 #### MAIN RUN SCRIPT
 if os.path.isdir(args.out_dir):
@@ -597,7 +605,7 @@ if not(os.path.exists(args.out_dir + "/troublet.done")):
     doublets(args, ref_mtx, alt_mtx, cluster_file)
 doublet_file = args.out_dir + "/clusters.tsv"
 if not(os.path.exists(args.out_dir + "/consensus.done")):
-    consensus(args, ref_mtx, alt_mtx, doublet_file)
+    consensus(args, ref_mtx, alt_mtx, doublet_file, final_vcf)
 print("done")
 
 #### END MAIN RUN SCRIPT        
