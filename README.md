@@ -98,7 +98,15 @@ A typical command looks like
 ```
 singularity exec /path/to/souporcell_latest.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
 ```
-The above command will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up. This dataset should take several hours to run on 8 threads mostly due to read processing, remapping, and variant calling.
+
+If you are clustering a dataset with more than 16 donors, use souporcell3 with k-harmonic means clustering.
+(This enables multiple runs with bad cluster center detection and reinitialization)
+
+```
+singularity exec /path/to/souporcell_latest.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters -s True -m khm
+```
+
+The above commands will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up. This dataset should take several hours to run on 8 threads mostly due to read processing, remapping, and variant calling.
 
 If you have a common snps file you may want to use the --common_variants option with or without the --skip_remap option. This option will skip conversion to fastq, remapping with minimap2, and reattaching barcodes, and the --common_variants will remove the freebayes step. Each which will save a significant amount of time, but --skip-remap isn't recommended without --common_variants.
 
@@ -294,8 +302,8 @@ souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 > cluste
 ```
 (note clusters_tmp.tsv output as the doublet caller outputs the final clusters file)
 
-If you are clustering more than 16 samples, use Souporcell3 with k harmonic means clustering.
-(This enables multiple runs with bad cluster center reinitialization)
+If you are clustering a dataset with more than 16 donors, use souporcell3 with k-harmonic means clustering.
+(This enables multiple runs with bad cluster center detection and reinitialization)
 ```
 souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 -s true -m khm > clusters_tmp.tsv
 ```
