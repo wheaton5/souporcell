@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
-
+__version__ = "3.0.0"
 parser = argparse.ArgumentParser(
     description="single cell RNAseq mixed genotype clustering using sparse mixture model clustering.")
 parser.add_argument("-i", "--bam", required = True, help = "cellranger bam")
@@ -34,6 +34,7 @@ parser.add_argument("--ignore", required = False, default = False, type = bool, 
 parser.add_argument("--aligner", required = False, default = "minimap2", help = "optionally change to HISAT2 if you have it installed, not included in singularity build")
 parser.add_argument("--souporcell_path", required = False, default = None, help = "Path to souporcell executable (overrides auto-detection)")
 parser.add_argument("--troublet_path", required = False, default = None, help = "Path to troublet executable (overrides auto-detection)")
+parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
 args = parser.parse_args()
 
@@ -216,8 +217,8 @@ def make_fastqs(args):
                 start = region[sub_index][1]
                 end = region[sub_index][2]
                 fq_name = args.out_dir + "/souporcell_fastq_" + str(index) + "_" + str(sub_index) + ".fq"
-                directory = os.path.dirname(os.path.realpath(__file__))
-                p = subprocess.Popen([directory+"/renamer.py", "--bam", args.bam, "--barcodes", args.barcodes, "--out", fq_name,
+                pyexe = resolve_pyscript("renamer.py")
+                p = subprocess.Popen([pyexe, "--bam", args.bam, "--barcodes", args.barcodes, "--out", fq_name,
                         "--chrom", chrom, "--start", str(start), "--end", str(end), "--no_umi", str(args.no_umi), 
                         "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag])
                 all_fastqs.append(fq_name)
@@ -263,10 +264,7 @@ def remap(args, region_fastqs, all_fastqs):
                         cmd.extend(["-I", args.max_base_mem])
                     cmd.extend([args.fasta, args.out_dir + "/tmp.fq"])
                     minierr.write(" ".join(cmd)+"\n")
-                    subprocess.check_call(["minimap2", "-ax", "splice", "-t", str(args.threads), "-G50k", "-k", "21", 
-                        "-w", "11", "--sr", "-A2", "-B8", "-O12,32", "-E2,1", "-r200", "-p.5", "-N20", "-f1000,5000",
-                        "-n2", "-m20", "-s40", "-g2000", "-2K50m", "--secondary=no", args.max_base_mem, args.fasta, args.out_dir + "/tmp.fq"], 
-                        stdout = samfile, stderr = minierr)
+                    subprocess.check_call(cmd, stdout = samfile, stderr = minierr)
         subprocess.check_call(['rm', args.out_dir + "/tmp.fq"])
 
     with open(args.out_dir + '/remapping.done', 'w') as done:
@@ -296,12 +294,11 @@ def retag(args, minimap_tmp_files):
         retag_out_files.append(outfileout)
         print(args.no_umi)
         print(str(args.no_umi))
-        cmd = ["retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi),
+        pyexe = resolve_pyscript("retag.py")
+        cmd = [pyexe, "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi),
             "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile]
         print(" ".join(cmd))
-        directory = os.path.dirname(os.path.realpath(__file__))
-        p = subprocess.Popen([directory+"/retag.py", "--sam", minimap_tmp_files[index], "--no_umi", str(args.no_umi), 
-            "--umi_tag", args.umi_tag, "--cell_tag", args.cell_tag, "--out", outfile], stdout = outfileout, stderr = errfile)
+        p = subprocess.Popen(cmd, stdout = outfileout, stderr = errfile)
         procs.append(p)
     for (i, p) in enumerate(procs): # wait for processes to finish
         p.wait()
@@ -558,8 +555,8 @@ def doublets(args, ref_mtx, alt_mtx, cluster_file):
 
 def consensus(args, ref_mtx, alt_mtx, doublet_file, final_vcf):
     print("running co inference of ambient RNA and cluster genotypes")
-    directory = os.path.dirname(os.path.realpath(__file__))
-    subprocess.check_call([directory + "/consensus.py", "-c", doublet_file, "-a", alt_mtx, "-r", ref_mtx, "-p", args.ploidy,
+    pyexe = resolve_pyscript("consensus.py")
+    subprocess.check_call([pyexe, "-c", doublet_file, "-a", alt_mtx, "-r", ref_mtx, "-p", args.ploidy,
         "--output_dir",args.out_dir,"--soup_out", args.out_dir + "/ambient_rna.txt", "--vcf_out", args.out_dir + "/cluster_genotypes.vcf", "--vcf", final_vcf])
     subprocess.check_call(['touch', args.out_dir + "/consensus.done"])
 
@@ -588,6 +585,29 @@ def resolve_executable(name, args = None, attr_name = None, local_subpath = None
     raise RuntimeError(
         f"{name} executable not found. "
         f"Provide --{attr_name}, ensure '{name}' is in PATH, or build the rust execultable in {name} local folder."
+    )
+
+def resolve_pyscript(name):
+    # local lookup
+    local_path = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        name
+    )
+    if os.path.exists(local_path):
+        print("executing", name, "from local path", local_path)
+        return local_path
+    # container lookup
+    local_path = os.path.join(
+        "/opt/souporcell/",
+        name
+    )
+    if os.path.exists(local_path):
+        print("executing", name, "from container path")
+        return local_path
+    # fail
+    raise RuntimeError(
+        f"{name} executable not found. "
+        f"Provide {name} in current working directory."
     )
 
 #### MAIN RUN SCRIPT
