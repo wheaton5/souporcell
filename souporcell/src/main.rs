@@ -705,13 +705,14 @@ impl CellData {
 
 
 fn load_barcodes(params: &Params) -> Vec<String> {
-    //let reader = File::open(params.barcodes.to_string()).expect("cannot open barcode file");
-    //let reader = BufReader::new(reader);
     let reader = reader(&params.barcodes);
     let mut cell_barcodes: Vec<String> = Vec::new();
     for line in reader.lines() {
         let line = line.expect("Unable to read line");
         cell_barcodes.push(line.to_string());
+    }
+    if cell_barcodes.len() > 200_000 {
+        eprintln!("More than 200_000 barcodes in barcodes file? is this the filtered barcode file? (do not use raw barcode file)");
     }
     cell_barcodes
 }
@@ -814,8 +815,8 @@ fn load_params() -> Params {
     let min_alt_umis = params.value_of("min_alt_umis").unwrap_or("0");
     let min_alt_umis = min_alt_umis.to_string().parse::<u32>().unwrap();
 
-    let clustering_method = params.value_of("clustering_method").unwrap_or("em");
-    let clustering_method = match clustering_method {
+    let clustering_method_str = params.value_of("clustering_method").unwrap_or("em");
+    let clustering_method = match clustering_method_str {
         "em" => ClusterMethod::EM,
         "khm" => ClusterMethod::KHM,
         _ => {
@@ -826,7 +827,10 @@ fn load_params() -> Params {
 
     let souporcell3 = params.value_of("souporcell3").unwrap_or("false");
     let souporcell3 = souporcell3.to_string().parse::<bool>().unwrap();
-
+    // warnings
+    if (num_clusters > 16) && (clustering_method_str == "em" ||  souporcell3 == false){
+        eprintln!("For k > 16, using souporcell3 (with '-s true' flag) is recommended with khm clustering method (with '-m khm' flag)");
+    }
     Params{
         ref_mtx: ref_mtx.to_string(),
         alt_mtx: alt_mtx.to_string(),

@@ -91,14 +91,22 @@ optional arguments:
                         option represent the donors in your sample
   --skip_remap SKIP_REMAP
                         don't remap with minimap2 (not recommended unless in
-                        conjunction with --common_variants
+                        conjunction with --common_variants)
   --ignore IGNORE       set to True to ignore data error assertions
 ```
-A typical command looks like
+A typical command looks like (assuming all data files are in current working directory)
 ```
-singularity exec /path/to/souporcell_latest.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
+singularity exec --bind ./:/data souporcell_latest.sif souporcell_pipeline.py -i /data/possorted_genome_bam.bam -b /data/barcodes.tsv -f /data/reference.fasta -t num_threads_to_use -o /data/output_dir_name -k num_clusters
 ```
-The above command will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up. This dataset should take several hours to run on 8 threads mostly due to read processing, remapping, and variant calling.
+
+If you are clustering a dataset with more than 16 donors, use souporcell3 with k-harmonic means clustering.
+(This enables multiple runs with bad cluster center detection and reinitialization)
+
+```
+singularity exec --bind ./:/data souporcell_latest.sif souporcell_pipeline.py -i /data/possorted_genome_bam.bam -b /data/barcodes.tsv -f /data/reference.fasta -t num_threads_to_use -o /data/output_dir_name -k num_clusters -s True -m khm
+```
+
+The above commands will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up. This dataset should take several hours to run on 8 threads mostly due to read processing, remapping, and variant calling.
 
 If you have a common snps file you may want to use the --common_variants option with or without the --skip_remap option. This option will skip conversion to fastq, remapping with minimap2, and reattaching barcodes, and the --common_variants will remove the freebayes step. Each which will save a significant amount of time, but --skip-remap isn't recommended without --common_variants.
 
@@ -124,7 +132,7 @@ tar -xzvf refdata-cellranger-GRCh38-3.0.0.tar.gz
 ```
 Now you should be ready to test it out
 ```
-singularity exec /path/to/souporcell_latest.sif souporcell_pipeline.py -i A.merged.bam -b GSM2560245_barcodes.tsv -f refdata-cellranger-GRCh38-3.0.0/fasta/genome.fa -t 8 -o demux_data_test -k 4
+singularity exec --bind ./:/data souporcell_latest.sif souporcell_pipeline.py -i /data/A.merged.bam -b /data/GSM2560245_barcodes.tsv -f /data/refdata-cellranger-GRCh38-3.0.0/fasta/genome.fa -t 8 -o /data/demux_data_test -k 4
 ```
 
 This should require about 20gb of ram mostly because of the minimap2 indexing step. I might soon host an index and reference for human to make this less painful.
@@ -294,8 +302,8 @@ souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 > cluste
 ```
 (note clusters_tmp.tsv output as the doublet caller outputs the final clusters file)
 
-If you are clustering more than 16 samples, use Souporcell3 with k harmonic means clustering.
-(This enables multiple runs with bad cluster center reinitialization)
+If you are clustering a dataset with more than 16 donors, use souporcell3 with k-harmonic means clustering.
+(This enables multiple runs with bad cluster center detection and reinitialization)
 ```
 souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 -s true -m khm > clusters_tmp.tsv
 ```
