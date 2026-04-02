@@ -87,7 +87,7 @@ if args.known_genotypes:
     for sample in args.known_genotypes_sample_names:
         assert sample in args.known_genotypes_sample_names, "not all samples in known genotype sample names option are in the known genotype samples vcf?"
 # souporcell3 warning
-if (int(args.clusters) > 16) and ((args.souporcell3 == True) or (args.clustering_method == "em")):
+if (int(args.clusters) > 16) and ((args.souporcell3 is None) or (args.clustering_method is None)):
     print("For clusters (k) > 16, using souporcell3 (with '-s True' flag) is recommended with khm clustering method (with '-m khm' flag)")
 #test bam load
 bam = pysam.AlignmentFile(args.bam)
