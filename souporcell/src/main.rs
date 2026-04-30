@@ -574,7 +574,7 @@ fn init_cluster_centers_random_assignment(loci: usize, cell_data: &Vec<CellData>
         }
     }
     for cell in cell_data {
-        let cluster = rng.gen_range(0,num_clusters);
+        let cluster = rng.gen_range(0..num_clusters);
         for locus in 0..cell.loci.len() {
             let alt_c = cell.alt_counts[locus] as f32;
             let total = alt_c + (cell.ref_counts[locus] as f32);
