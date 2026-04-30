@@ -4,7 +4,7 @@ From: ubuntu:18.04
 %environment
     # set up all essential environment variables
     export LC_ALL=C
-    export PATH=/miniconda3/bin:/opt/minimap2-2.26_x64-linux:/opt/bedtools-2:/opt/freebayes/build:/opt/hisat2-2.2.1:/opt/bedtools2/bin:/opt/souporcell:/opt/souporcell/souporcell/target/release:/opt/souporcell/troublet/target/release:/usr/local/condabin:/opt/minimap2-2.26_x64-linux:/root/.cargo/bin:/opt:$PATH
+    export PATH=/miniconda3/bin:/opt/minimap2-2.26_x64-linux:/bedtools-2:/opt/freebayes/build:/opt/hisat2-2.2.1:/bedtools2/bin:/opt/souporcell:/opt/souporcell/souporcell/target/release:/opt/souporcell/troublet/target/release:/usr/local/condabin:/opt/minimap2-2.26_x64-linux:/root/.cargo/bin:/opt:$PATH
     export PYTHONPATH=/miniconda3/lib/python3.9/:$PYTHONPATH
     
     # activate conda environment
