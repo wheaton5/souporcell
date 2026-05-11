@@ -611,10 +611,10 @@ def resolve_pyscript(name):
     )
 
 #### MAIN RUN SCRIPT
-if os.path.isdir(args.out_dir):
+if os.path.isdir(os.path.join(args.out_dir, "logs")):
     print("restarting pipeline in existing directory " + args.out_dir)
 else:
-    subprocess.check_call(["mkdir", "-p", args.out_dir + "/logs"])
+    os.makedirs(os.path.join(args.out_dir, "logs"), exist_ok=True)
 if not args.skip_remap:
     if not os.path.exists(args.out_dir + "/fastqs.done"):
         (region_fastqs, all_fastqs) = make_fastqs(args)
