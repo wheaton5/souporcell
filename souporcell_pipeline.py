@@ -115,7 +115,12 @@ print("checking fasta")
 fasta = pyfaidx.Fasta(args.fasta, key_function = lambda key: key.split()[0])
 
 def get_fasta_regions(fastaname, threads):
-    fasta = pyfaidx.Fasta(args.fasta, key_function = lambda key: key.split()[0])
+    fasta = pyfaidx.Fasta(fastaname, key_function = lambda key: key.split()[0])
+    if len(fasta.keys()) == 0:
+        raise RuntimeError(
+            f"pyfaidx could not read fasta: {fastaname}. "
+            "Check that index file (.fai) exists in the same directory and is not empty."
+        )
     total_reference_length = 0
     for chrom in sorted(fasta.keys()):
        total_reference_length += len(fasta[chrom])
@@ -142,7 +147,7 @@ def get_fasta_regions(fastaname, threads):
                 chrom_so_far += step_length - region_so_far
                 region_so_far = 0
     if len(region) > 0:
-        if len(regions) == args.threads:
+        if len(regions) == threads:
             regions[-1] = regions[-1] + region
         else:
             regions.append(region)
