@@ -4,7 +4,7 @@ From: ubuntu:18.04
 %environment
     # set up all essential environment variables
     export LC_ALL=C
-    export PATH=/miniconda3/bin:/opt/minimap2-2.26_x64-linux:/opt/bedtools-2:/opt/freebayes/build:/opt/hisat2-2.2.1:/opt/bedtools2/bin:/opt/souporcell:/opt/souporcell/troublet/target/release:/usr/local/condabin:/opt/minimap2-2.26_x64-linux:/root/.cargo/bin:/opt:$PATH
+    export PATH=/miniconda3/bin:/opt/minimap2-2.26_x64-linux:/bedtools-2:/opt/freebayes/build:/opt/hisat2-2.2.1:/bedtools2/bin:/opt/souporcell:/opt/souporcell/souporcell/target/release:/opt/souporcell/troublet/target/release:/usr/local/condabin:/opt/minimap2-2.26_x64-linux:/root/.cargo/bin:/opt:$PATH
     export PYTHONPATH=/miniconda3/lib/python3.9/:$PYTHONPATH
     
     # activate conda environment
@@ -12,27 +12,22 @@ From: ubuntu:18.04
     conda activate;
     
 %post
-    # update and install essential system dependencies
+    # update and install essential dependencies
     apt-get -y update
     apt-get update && apt-get install -y automake build-essential bzip2 wget git default-jre unzip
     apt-get -y install wget
     apt-get -y install curl
     
-    # download, install, and setup miniconda3 to specifically use Python 3.10
-    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
-    bash Miniconda3-latest-Linux-x86_64.sh -b -f -p /miniconda3/
-    rm Miniconda3-latest-Linux-x86_64.sh
+    # download, install, and update miniconda3
+    wget https://repo.anaconda.com/miniconda/Miniconda3-py39_4.12.0-Linux-x86_64.sh
+    bash Miniconda3-py39_4.12.0-Linux-x86_64.sh -b -f -p /miniconda3/
+    rm Miniconda3-py39_4.12.0-Linux-x86_64.sh
     
-    # Set PATH to include Miniconda3 bin directory
+    # install dependencies via conda
     export PATH="/miniconda3/bin:$PATH"
-    
-    # Install Python 3.10 specifically along with some initial packages
-    conda install -y -c conda-forge pip numpy # Install general dependencies
-    conda install -y python=3.10 # Python 3.10 
-
+    conda install -y -c conda-forge pip numpy # general dependencies
     conda update --all
     
-    # Continue with other system dependencies installations
     apt-get -y install libncurses5-dev
     apt-get -y install zlib1g-dev
     apt-get -y install libbz2-dev
@@ -63,17 +58,12 @@ From: ubuntu:18.04
     cd /opt/souporcell/souporcell
     cargo build --release
     cd /opt
-    pip install pysam
-    pip install numpy
     pip install cython
-
-
-
-
-     pip install git+https://github.com/stan-dev/pystan2.git@master
+    pip install pysam
+    pip install --no-build-isolation git+https://github.com/stan-dev/pystan2.git@master
     pip install pyfaidx
     pip install "setuptools<58" --upgrade
-    pip install pyvcf
+    pip install --no-build-isolation PyVCF==0.6.8
     pip install scipy
     cd /opt
     wget https://github.com/samtools/htslib/releases/download/1.9/htslib-1.9.tar.bz2
@@ -107,12 +97,8 @@ From: ubuntu:18.04
     mv vartrix_linux vartrix
     chmod 777 vartrix
     cd ..
-    
 
 %labels
     Author whheaton
-    Version v2.1
+    Version v3.0
     MyLabel souporcell
-
-
-

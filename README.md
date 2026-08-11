@@ -2,9 +2,11 @@
 
 <img src="https://github.com/wheaton5/souporcell/blob/master/souporcell_star.png" width="100">
 
-Manuscript of this method available at https://www.nature.com/articles/s41592-020-0820-1
+Manuscripts of this method available at 
 
-The manuscript describing the high-donor clustering method, Souporcell3, is available at https://www.nature.com/articles/s41592-020-0820-1
+[Souporcell3: Robust Demultiplexing for High-Donor Single-Cell RNA-seq Datasets](https://doi.org/10.1093/bioinformatics/btag117)
+
+[Souporcell: robust clustering of single-cell RNA-seq data by genotype without reference genotypes](https://www.nature.com/articles/s41592-020-0820-1)
 
 souporcell is a method for clustering mixed-genotype scRNAseq experiments by individual.
 
@@ -39,6 +41,7 @@ The options for using souporcell are:
 singularity exec souporcell_latest.sif souporcell_pipeline.py -h
 usage: souporcell_pipeline.py [-h] -i BAM -b BARCODES -f FASTA -t THREADS -o
                               OUT_DIR -k CLUSTERS [-p PLOIDY]
+                              [-m CLUSTERING_METHOD] [-s SOUPORCELL3]
                               [--min_alt MIN_ALT] [--min_ref MIN_REF]
                               [--max_loci MAX_LOCI] [--restarts RESTARTS]
                               [--common_variants COMMON_VARIANTS]
@@ -65,6 +68,12 @@ optional arguments:
                         k
   -p PLOIDY, --ploidy PLOIDY
                         ploidy, must be 1 or 2, default = 2
+  -m CLUSTERING_METHOD, --clustering_method CLUSTERING_METHOD
+                        souporcell clustering method: choose between expectation maximization (em) and k harmonic means (khm)
+  -s SOUPORCELL3, --souporcell3 SOUPORCELL3
+                        set to True to use souporcell3, which iterates multiple times to refine the results; suitable for datasets with a high number of donors (>16).
+  -I MAX_BASE_MEM, --max_base_mem MAX_BASE_MEM
+                        maximum number of target bases that can be held in RAM for indexing, increase the number if --split-index in minimap2 affects retag.py process.
   --min_alt MIN_ALT     min alt to use locus, default = 10.
   --min_ref MIN_REF     min ref to use locus, default = 10.
   --max_loci MAX_LOCI   max loci per cell, affects speed, default = 2048.
@@ -82,14 +91,22 @@ optional arguments:
                         option represent the donors in your sample
   --skip_remap SKIP_REMAP
                         don't remap with minimap2 (not recommended unless in
-                        conjunction with --common_variants
+                        conjunction with --common_variants)
   --ignore IGNORE       set to True to ignore data error assertions
 ```
-A typical command looks like
+A typical command looks like (assuming all data files are in current working directory)
 ```
-singularity exec /path/to/souporcell_latest.sif souporcell_pipeline.py -i /path/to/possorted_genome_bam.bam -b /path/to/barcodes.tsv -f /path/to/reference.fasta -t num_threads_to_use -o output_dir_name -k num_clusters
+singularity exec --bind ./:/data souporcell_latest.sif souporcell_pipeline.py -i /data/possorted_genome_bam.bam -b /data/barcodes.tsv -f /data/reference.fasta -t num_threads_to_use -o /data/output_dir_name -k num_clusters
 ```
-The above command will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up. This dataset should take several hours to run on 8 threads mostly due to read processing, remapping, and variant calling.
+
+If you are clustering a dataset with more than 16 donors, use souporcell3 with k-harmonic means clustering.
+(This enables multiple runs with bad cluster center detection and reinitialization)
+
+```
+singularity exec --bind ./:/data souporcell_latest.sif souporcell_pipeline.py -i /data/possorted_genome_bam.bam -b /data/barcodes.tsv -f /data/reference.fasta -t num_threads_to_use -o /data/output_dir_name -k num_clusters -s True -m khm
+```
+
+The above commands will run all six steps of the pipeline and it will require up to 24gb of ram for human (minimap2 bam index is high water mark for memory). For smaller genomes, fewer clusters, lower --max-loci will require less memory. Note that souporcell will require roughly 2x the amount of diskspace that the input bam file takes up. This dataset should take several hours to run on 8 threads mostly due to read processing, remapping, and variant calling.
 
 If you have a common snps file you may want to use the --common_variants option with or without the --skip_remap option. This option will skip conversion to fastq, remapping with minimap2, and reattaching barcodes, and the --common_variants will remove the freebayes step. Each which will save a significant amount of time, but --skip-remap isn't recommended without --common_variants.
 
@@ -115,7 +132,7 @@ tar -xzvf refdata-cellranger-GRCh38-3.0.0.tar.gz
 ```
 Now you should be ready to test it out
 ```
-singularity exec /path/to/souporcell_latest.sif souporcell_pipeline.py -i A.merged.bam -b GSM2560245_barcodes.tsv -f refdata-cellranger-GRCh38-3.0.0/fasta/genome.fa -t 8 -o demux_data_test -k 4
+singularity exec --bind ./:/data souporcell_latest.sif souporcell_pipeline.py -i /data/A.merged.bam -b /data/GSM2560245_barcodes.tsv -f /data/refdata-cellranger-GRCh38-3.0.0/fasta/genome.fa -t 8 -o /data/demux_data_test -k 4
 ```
 
 This should require about 20gb of ram mostly because of the minimap2 indexing step. I might soon host an index and reference for human to make this less painful.
@@ -233,7 +250,7 @@ And add /path/to/souporcell/souporcell/target/release to your path
 usage
 ```
 souporcell -h
-souporcell 2.4
+souporcell 3.0
 Haynes Heaton <whheaton@gmail.com>
 clustering scRNAseq cells by genotype
 
@@ -285,8 +302,8 @@ souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 > cluste
 ```
 (note clusters_tmp.tsv output as the doublet caller outputs the final clusters file)
 
-If you are clustering more than 16 samples, use Souporcell3 with k harmonic means clustering.
-(This enables multiple runs with bad cluster center reinitialization)
+If you are clustering a dataset with more than 16 donors, use souporcell3 with k-harmonic means clustering.
+(This enables multiple runs with bad cluster center detection and reinitialization)
 ```
 souporcell -a alt.mtx -r ref.mtx -b barcodes.tsv -k <num_clusters> -t 8 -s true -m khm > clusters_tmp.tsv
 ```
@@ -302,7 +319,7 @@ And add /path/to/souporcell/troublet/target/release to your path
 The usage is
 ```
 troublet -h
-troublet 2.4
+troublet 3.0
 Haynes Heaton <whheaton@gmail.com>
 Intergenotypic doublet detection given cluster assignments and cell allele counts
 
